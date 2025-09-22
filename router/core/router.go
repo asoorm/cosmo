@@ -855,7 +855,7 @@ func (r *Router) bootstrap(ctx context.Context) error {
 
 			// Check for file_system providers
 			for _, provider := range r.storageProviders.FileSystem {
-				if provider.ID == r.mcp.Storage.ProviderID {
+				if provider.ID == r.connectRPC.Storage.ProviderID {
 					r.logger.Debug("Found file_system storage provider for ConnectRPC",
 						zap.String("id", provider.ID),
 						zap.String("path", provider.Path))
@@ -868,7 +868,7 @@ func (r *Router) bootstrap(ctx context.Context) error {
 			}
 
 			if !found {
-				return fmt.Errorf("storage provider with id '%s' for mcp server not found", r.mcp.Storage.ProviderID)
+				return fmt.Errorf("storage provider with id '%s' for connect rpc server not found", r.mcp.Storage.ProviderID)
 			}
 		}
 

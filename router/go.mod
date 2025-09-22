@@ -50,10 +50,10 @@ require (
 	go.uber.org/automaxprocs v1.5.3
 	go.uber.org/zap v1.27.0
 	go.withmatt.com/connect-brotli v0.4.0
-	golang.org/x/sync v0.15.0
-	golang.org/x/sys v0.33.0 // indirect
-	google.golang.org/grpc v1.68.1
-	google.golang.org/protobuf v1.36.4
+	golang.org/x/sync v0.16.0
+	golang.org/x/sys v0.35.0 // indirect
+	google.golang.org/grpc v1.71.0
+	google.golang.org/protobuf v1.36.7
 )
 
 require (
@@ -61,6 +61,7 @@ require (
 	github.com/MicahParks/jwkset v0.9.0
 	github.com/MicahParks/keyfunc/v3 v3.3.5
 	github.com/alicebob/miniredis/v2 v2.34.0
+	github.com/bufbuild/protocompile v0.14.1
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/cep21/circuit/v4 v4.0.0
 	github.com/dgraph-io/ristretto/v2 v2.1.0
@@ -71,6 +72,7 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-plugin v1.6.3
 	github.com/iancoleman/strcase v0.3.0
+	github.com/jhump/protoreflect v1.17.0
 	github.com/klauspost/compress v1.18.0
 	github.com/mark3labs/mcp-go v0.36.0
 	github.com/minio/minio-go/v7 v7.0.74
@@ -81,8 +83,8 @@ require (
 	github.com/wundergraph/astjson v0.0.0-20250106123708-be463c97e083
 	go.uber.org/goleak v1.3.0
 	go.uber.org/ratelimit v0.3.1
-	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
-	golang.org/x/text v0.23.0
+	golang.org/x/exp v0.0.0-20250813145105-42675adae3e6
+	golang.org/x/text v0.28.0
 	golang.org/x/time v0.9.0
 )
 
@@ -92,7 +94,6 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/bufbuild/protocompile v0.14.1 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cilium/ebpf v0.9.1 // indirect
 	github.com/containerd/cgroups/v3 v3.0.2 // indirect
@@ -164,10 +165,10 @@ require (
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.33.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.4.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.36.0 // indirect
-	golang.org/x/net v0.38.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20250106144421-5f5ef82da422 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
+	golang.org/x/crypto v0.41.0 // indirect
+	golang.org/x/net v0.42.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20250811230008-5f3141c8851a // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250811230008-5f3141c8851a // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
