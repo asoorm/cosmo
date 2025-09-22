@@ -587,7 +587,57 @@ func (s *ConnectRPCServer) mapConnectRequestToGraphQLVariables(connectRequest ma
 	//	}
 	//}
 
-	return connectRequest, nil
+	// Convert proto field names to GraphQL variable names
+	variables := make(map[string]interface{})
+
+	for protoField, value := range connectRequest {
+		// Convert snake_case proto field names to camelCase GraphQL variable names
+		graphqlVar := s.convertProtoFieldToGraphQLVariable(protoField)
+		variables[graphqlVar] = value
+
+		s.logger.Debug("mapped proto field to GraphQL variable",
+			zap.String("protoField", protoField),
+			zap.String("graphqlVariable", graphqlVar),
+			zap.Any("value", value))
+	}
+
+	return variables, nil
+}
+
+// convertProtoFieldToGraphQLVariable converts proto field names to GraphQL variable names
+func (s *ConnectRPCServer) convertProtoFieldToGraphQLVariable(protoField string) string {
+	// Handle common proto to GraphQL field name mappings
+	switch protoField {
+	case "employee_id":
+		return "employeeId"
+	case "has_pets":
+		return "hasPets"
+	default:
+		// For other fields, convert snake_case to camelCase
+		return s.snakeToCamelCase(protoField)
+	}
+}
+
+// snakeToCamelCase converts snake_case to camelCase
+func (s *ConnectRPCServer) snakeToCamelCase(snake string) string {
+	if snake == "" {
+		return ""
+	}
+
+	parts := strings.Split(snake, "_")
+	if len(parts) == 1 {
+		return parts[0] // No underscores, return as-is
+	}
+
+	// First part stays lowercase, subsequent parts get capitalized
+	result := parts[0]
+	for i := 1; i < len(parts); i++ {
+		if len(parts[i]) > 0 {
+			result += strings.ToUpper(parts[i][:1]) + parts[i][1:]
+		}
+	}
+
+	return result
 }
 
 //// validateInputWithSchema validates input data against a compiled JSON Schema
@@ -639,13 +689,410 @@ func (s *ConnectRPCServer) writeConnectError(w http.ResponseWriter, err *connect
 
 // writeConnectSuccess writes a successful Connect RPC response
 func (s *ConnectRPCServer) writeConnectSuccess(w http.ResponseWriter, r *http.Request, data interface{}) {
+	// Check the request content type to determine response format
+	requestContentType := r.Header.Get("Content-Type")
+
+	if requestContentType == "application/proto" {
+		// Respond with proto encoding
+		s.writeProtoResponse(w, r, data)
+	} else {
+		// Default to JSON response (existing behavior)
+		s.writeJSONResponse(w, data)
+	}
+}
+
+// writeJSONResponse writes a JSON response (original behavior)
+func (s *ConnectRPCServer) writeJSONResponse(w http.ResponseWriter, data interface{}) {
 	// Set headers
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
 	// Write the GraphQL data directly as the Connect RPC response
-	// In a real implementation with generated protos, this would be properly typed
 	json.NewEncoder(w).Encode(data)
+}
+
+// writeProtoResponse writes a proto-encoded response
+func (s *ConnectRPCServer) writeProtoResponse(w http.ResponseWriter, r *http.Request, data interface{}) {
+	// Extract operation information from the request path
+	operationName, packageName, err := s.extractOperationInfoFromPath(r.URL.Path)
+	if err != nil {
+		s.logger.Error("failed to extract operation info for proto response", zap.Error(err))
+		s.writeConnectError(w, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to extract operation info: %w", err)))
+		return
+	}
+
+	// Construct the response message name
+	responseMessageName := protoreflect.FullName(fmt.Sprintf("%s.%sResponse", packageName, operationName))
+
+	// Create the proto response message
+	protoData, err := s.createProtoResponseMessage(data, responseMessageName)
+	if err != nil {
+		s.logger.Error("failed to create proto response message",
+			zap.String("messageName", string(responseMessageName)),
+			zap.Error(err))
+		s.writeConnectError(w, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create proto response: %w", err)))
+		return
+	}
+
+	// Marshal the proto message
+	responseBytes, err := proto.Marshal(protoData)
+	if err != nil {
+		s.logger.Error("failed to marshal proto response", zap.Error(err))
+		s.writeConnectError(w, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to marshal proto response: %w", err)))
+		return
+	}
+
+	// Set headers and write response
+	w.Header().Set("Content-Type", "application/proto")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseBytes)
+}
+
+// extractOperationInfoFromPath extracts operation name and package name from the request path
+func (s *ConnectRPCServer) extractOperationInfoFromPath(path string) (operationName, packageName string, err error) {
+	s.logger.Debug("extractOperationInfoFromPath called", zap.String("path", path))
+
+	if path == "" {
+		return "", "", fmt.Errorf("empty request path")
+	}
+
+	// Remove leading slash and split by '/'
+	pathParts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	if len(pathParts) != 2 {
+		return "", "", fmt.Errorf("invalid request path format: %s", path)
+	}
+
+	serviceAndPackage := pathParts[0] // e.g., "service.v1.EmployeeServiceService"
+	operationName = pathParts[1]      // e.g., "GetEmployeeByID"
+
+	// Extract the package name from the service path
+	// For "service.v1.EmployeeServiceService", we want "service.v1"
+	serviceParts := strings.Split(serviceAndPackage, ".")
+	if len(serviceParts) < 2 {
+		return "", "", fmt.Errorf("invalid service format: %s", serviceAndPackage)
+	}
+
+	// Take all parts except the last one (which is the service name)
+	packageName = strings.Join(serviceParts[:len(serviceParts)-1], ".")
+
+	s.logger.Debug("extracted operation info",
+		zap.String("operationName", operationName),
+		zap.String("packageName", packageName))
+
+	return operationName, packageName, nil
+}
+
+// createProtoResponseMessage creates a proto response message from GraphQL data
+func (s *ConnectRPCServer) createProtoResponseMessage(data interface{}, messageName protoreflect.FullName) (protoreflect.ProtoMessage, error) {
+	s.logger.Debug("createProtoResponseMessage called", zap.String("messageName", string(messageName)))
+
+	// Get the response message descriptor
+	md, err := s.GetMessageDescriptor(messageName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get response message descriptor: %w", err)
+	}
+
+	// Create a dynamic message using the descriptor
+	msg := dynamicpb.NewMessage(md)
+
+	// Convert the GraphQL data to proto message fields
+	err = s.populateProtoMessageFromData(msg, data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to populate proto message: %w", err)
+	}
+
+	s.logger.Debug("successfully created proto response message")
+	return msg, nil
+}
+
+// populateProtoMessageFromData populates a proto message from interface{} data
+func (s *ConnectRPCServer) populateProtoMessageFromData(msg *dynamicpb.Message, data interface{}) error {
+	s.logger.Debug("populating proto message from data")
+
+	// Handle nil data
+	if data == nil {
+		return nil
+	}
+
+	// Convert data to map if it's not already
+	dataMap, ok := data.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("expected data to be map[string]interface{}, got %T", data)
+	}
+
+	// Get the message reflection interface
+	msgReflect := msg.ProtoReflect()
+	msgDesc := msgReflect.Descriptor()
+	fields := msgDesc.Fields()
+
+	// Iterate over all fields in the message descriptor
+	for i := 0; i < fields.Len(); i++ {
+		field := fields.Get(i)
+		fieldName := string(field.Name())
+
+		// Check if the field exists in the data
+		value, exists := dataMap[fieldName]
+		if !exists {
+			s.logger.Debug("field not found in data, skipping", zap.String("fieldName", fieldName))
+			continue
+		}
+
+		// Convert the Go value to protoreflect.Value and set it
+		protoValue, err := s.goValueToProtoValue(value, field)
+		if err != nil {
+			s.logger.Error("failed to convert field value",
+				zap.String("fieldName", fieldName),
+				zap.String("fieldKind", field.Kind().String()),
+				zap.Bool("isList", field.IsList()),
+				zap.Any("value", value),
+				zap.String("valueType", fmt.Sprintf("%T", value)),
+				zap.Error(err))
+			return fmt.Errorf("failed to convert field %s: %w", fieldName, err)
+		}
+
+		// Add defensive check before setting the field
+		if !protoValue.IsValid() {
+			s.logger.Debug("skipping invalid proto value", zap.String("fieldName", fieldName))
+			continue
+		}
+
+		msgReflect.Set(field, protoValue)
+		s.logger.Debug("set field in proto message", zap.String("fieldName", fieldName))
+	}
+
+	s.logger.Debug("successfully populated proto message from data")
+	return nil
+}
+
+// goValueToProtoValue converts a Go value to a protoreflect.Value
+func (s *ConnectRPCServer) goValueToProtoValue(value interface{}, field protoreflect.FieldDescriptor) (protoreflect.Value, error) {
+	if value == nil {
+		return protoreflect.Value{}, nil
+	}
+
+	// Add debug logging to understand the field characteristics
+	s.logger.Debug("goValueToProtoValue called",
+		zap.String("fieldName", string(field.Name())),
+		zap.String("fieldKind", field.Kind().String()),
+		zap.Bool("isList", field.IsList()),
+		zap.Bool("isMap", field.IsMap()),
+		zap.String("valueType", fmt.Sprintf("%T", value)))
+
+	switch field.Kind() {
+	case protoreflect.BoolKind:
+		if v, ok := value.(bool); ok {
+			return protoreflect.ValueOfBool(v), nil
+		}
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		if v, ok := value.(float64); ok { // JSON numbers come as float64
+			return protoreflect.ValueOfInt32(int32(v)), nil
+		}
+		if v, ok := value.(int32); ok {
+			return protoreflect.ValueOfInt32(v), nil
+		}
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		if v, ok := value.(float64); ok { // JSON numbers come as float64
+			return protoreflect.ValueOfInt64(int64(v)), nil
+		}
+		if v, ok := value.(int64); ok {
+			return protoreflect.ValueOfInt64(v), nil
+		}
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		if v, ok := value.(float64); ok { // JSON numbers come as float64
+			return protoreflect.ValueOfUint32(uint32(v)), nil
+		}
+		if v, ok := value.(uint32); ok {
+			return protoreflect.ValueOfUint32(v), nil
+		}
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		if v, ok := value.(float64); ok { // JSON numbers come as float64
+			return protoreflect.ValueOfUint64(uint64(v)), nil
+		}
+		if v, ok := value.(uint64); ok {
+			return protoreflect.ValueOfUint64(v), nil
+		}
+	case protoreflect.FloatKind:
+		if v, ok := value.(float64); ok {
+			return protoreflect.ValueOfFloat32(float32(v)), nil
+		}
+		if v, ok := value.(float32); ok {
+			return protoreflect.ValueOfFloat32(v), nil
+		}
+	case protoreflect.DoubleKind:
+		if v, ok := value.(float64); ok {
+			return protoreflect.ValueOfFloat64(v), nil
+		}
+	case protoreflect.StringKind:
+		if v, ok := value.(string); ok {
+			return protoreflect.ValueOfString(v), nil
+		}
+	case protoreflect.BytesKind:
+		if v, ok := value.([]byte); ok {
+			return protoreflect.ValueOfBytes(v), nil
+		}
+		if v, ok := value.(string); ok {
+			return protoreflect.ValueOfBytes([]byte(v)), nil
+		}
+	case protoreflect.MessageKind:
+		// Check if this is a repeated message field first
+		if field.IsList() {
+			// Handle repeated message fields
+			if value == nil {
+				// Return empty list for null repeated fields
+				tempMsg := dynamicpb.NewMessage(field.ContainingMessage())
+				listValue := tempMsg.ProtoReflect().NewField(field)
+				return listValue, nil
+			}
+			if slice, ok := value.([]interface{}); ok {
+				// For lists, we need to create a temporary message to get a new list
+				tempMsg := dynamicpb.NewMessage(field.ContainingMessage())
+				listValue := tempMsg.ProtoReflect().NewField(field)
+				list := listValue.List()
+				for _, item := range slice {
+					if item == nil {
+						// Skip null items in the list
+						continue
+					}
+					if itemMap, ok := item.(map[string]interface{}); ok {
+						nestedMsgDesc := field.Message()
+						nestedMsg := dynamicpb.NewMessage(nestedMsgDesc)
+						err := s.populateProtoMessageFromData(nestedMsg, itemMap)
+						if err != nil {
+							return protoreflect.Value{}, fmt.Errorf("failed to populate nested message in list: %w", err)
+						}
+						list.Append(protoreflect.ValueOfMessage(nestedMsg.ProtoReflect()))
+					} else {
+						return protoreflect.Value{}, fmt.Errorf("expected map[string]interface{} for message field in list, got %T", item)
+					}
+				}
+				return listValue, nil
+			} else {
+				return protoreflect.Value{}, fmt.Errorf("expected []interface{} for repeated message field, got %T", value)
+			}
+		} else {
+			// Handle single nested messages
+			if value == nil {
+				// Return zero value for null message fields
+				return protoreflect.Value{}, nil
+			}
+			if nestedMap, ok := value.(map[string]interface{}); ok {
+				nestedMsgDesc := field.Message()
+				nestedMsg := dynamicpb.NewMessage(nestedMsgDesc)
+				err := s.populateProtoMessageFromData(nestedMsg, nestedMap)
+				if err != nil {
+					return protoreflect.Value{}, fmt.Errorf("failed to populate nested message: %w", err)
+				}
+				return protoreflect.ValueOfMessage(nestedMsg.ProtoReflect()), nil
+			} else {
+				return protoreflect.Value{}, fmt.Errorf("expected map[string]interface{} for message field, got %T", value)
+			}
+		}
+	default:
+		if field.IsList() {
+			// Handle repeated primitive fields
+			if slice, ok := value.([]interface{}); ok {
+				// For lists, we need to create a temporary message to get a new list
+				tempMsg := dynamicpb.NewMessage(field.ContainingMessage())
+				listValue := tempMsg.ProtoReflect().NewField(field)
+				list := listValue.List()
+				for _, item := range slice {
+					// This is a repeated primitive field - convert directly based on field kind
+					var itemValue protoreflect.Value
+					switch field.Kind() {
+					case protoreflect.BoolKind:
+						if v, ok := item.(bool); ok {
+							itemValue = protoreflect.ValueOfBool(v)
+						} else {
+							return protoreflect.Value{}, fmt.Errorf("expected bool for list item, got %T", item)
+						}
+					case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+						if v, ok := item.(float64); ok { // JSON numbers come as float64
+							itemValue = protoreflect.ValueOfInt32(int32(v))
+						} else if v, ok := item.(int32); ok {
+							itemValue = protoreflect.ValueOfInt32(v)
+						} else {
+							return protoreflect.Value{}, fmt.Errorf("expected number for int32 list item, got %T", item)
+						}
+					case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+						if v, ok := item.(float64); ok { // JSON numbers come as float64
+							itemValue = protoreflect.ValueOfInt64(int64(v))
+						} else if v, ok := item.(int64); ok {
+							itemValue = protoreflect.ValueOfInt64(v)
+						} else {
+							return protoreflect.Value{}, fmt.Errorf("expected number for int64 list item, got %T", item)
+						}
+					case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+						if v, ok := item.(float64); ok { // JSON numbers come as float64
+							itemValue = protoreflect.ValueOfUint32(uint32(v))
+						} else if v, ok := item.(uint32); ok {
+							itemValue = protoreflect.ValueOfUint32(v)
+						} else {
+							return protoreflect.Value{}, fmt.Errorf("expected number for uint32 list item, got %T", item)
+						}
+					case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+						if v, ok := item.(float64); ok { // JSON numbers come as float64
+							itemValue = protoreflect.ValueOfUint64(uint64(v))
+						} else if v, ok := item.(uint64); ok {
+							itemValue = protoreflect.ValueOfUint64(v)
+						} else {
+							return protoreflect.Value{}, fmt.Errorf("expected number for uint64 list item, got %T", item)
+						}
+					case protoreflect.FloatKind:
+						if v, ok := item.(float64); ok {
+							itemValue = protoreflect.ValueOfFloat32(float32(v))
+						} else if v, ok := item.(float32); ok {
+							itemValue = protoreflect.ValueOfFloat32(v)
+						} else {
+							return protoreflect.Value{}, fmt.Errorf("expected number for float list item, got %T", item)
+						}
+					case protoreflect.DoubleKind:
+						if v, ok := item.(float64); ok {
+							itemValue = protoreflect.ValueOfFloat64(v)
+						} else {
+							return protoreflect.Value{}, fmt.Errorf("expected number for double list item, got %T", item)
+						}
+					case protoreflect.StringKind:
+						if v, ok := item.(string); ok {
+							itemValue = protoreflect.ValueOfString(v)
+						} else {
+							return protoreflect.Value{}, fmt.Errorf("expected string for list item, got %T", item)
+						}
+					case protoreflect.BytesKind:
+						if v, ok := item.([]byte); ok {
+							itemValue = protoreflect.ValueOfBytes(v)
+						} else if v, ok := item.(string); ok {
+							itemValue = protoreflect.ValueOfBytes([]byte(v))
+						} else {
+							return protoreflect.Value{}, fmt.Errorf("expected bytes or string for bytes list item, got %T", item)
+						}
+					default:
+						return protoreflect.Value{}, fmt.Errorf("unsupported primitive field kind %v for list item", field.Kind())
+					}
+					list.Append(itemValue)
+				}
+				return listValue, nil
+			}
+		} else if field.IsMap() {
+			// Handle map fields
+			if mapData, ok := value.(map[string]interface{}); ok {
+				// For maps, we need to create a temporary message to get a new map
+				tempMsg := dynamicpb.NewMessage(field.ContainingMessage())
+				mapValue := tempMsg.ProtoReflect().NewField(field)
+				mapVal := mapValue.Map()
+				for k, v := range mapData {
+					keyValue := protoreflect.ValueOfString(k)
+					valueValue, err := s.goValueToProtoValue(v, field.MapValue())
+					if err != nil {
+						return protoreflect.Value{}, fmt.Errorf("failed to convert map value: %w", err)
+					}
+					mapVal.Set(keyValue.MapKey(), valueValue)
+				}
+				return mapValue, nil
+			}
+		}
+	}
+
+	return protoreflect.Value{}, fmt.Errorf("unsupported field kind %v for value type %T", field.Kind(), value)
 }
 
 // connectCodeToHTTPStatus maps Connect error codes to HTTP status codes
