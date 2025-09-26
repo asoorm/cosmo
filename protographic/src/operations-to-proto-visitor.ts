@@ -51,6 +51,7 @@ export interface OperationToProtoOptions {
     goPackage?: string;
     lockData?: ProtoLock;
     includeComments?: boolean;
+    markQueriesIdempotent?: boolean;
 }
 
 export interface OperationInfo {
@@ -67,6 +68,7 @@ export class OperationToProtoVisitor {
     private goPackage?: string;
     private lockManager: ProtoLockManager;
     private includeComments: boolean;
+    private markQueriesIdempotent: boolean;
     private usesWrapperTypes = false;
     private enumsUsed = new Set<string>();
     private fragments = new Map<string, FragmentDefinitionNode>();
@@ -86,6 +88,7 @@ export class OperationToProtoVisitor {
         this.packageName = options.packageName || 'service.v1';
         this.goPackage = options.goPackage;
         this.includeComments = options.includeComments || false;
+        this.markQueriesIdempotent = options.markQueriesIdempotent || false;
         this.lockManager = new ProtoLockManager(options.lockData);
     }
 
@@ -530,12 +533,17 @@ export class OperationToProtoVisitor {
                 }
             }
 
-            // For backward compatibility, we need to ensure the RPC method has the right indentation
-            if (!this.includeComments || !operationDescription) {
-                return `  rpc ${methodName}(${requestType}) returns (${returnType}) {}`;
+            // Determine RPC options based on operation type and configuration
+            const rpcOptions: string[] = [];
+            if (operation.operation === 'query' && this.markQueriesIdempotent) {
+                rpcOptions.push('option idempotency_level = NO_SIDE_EFFECTS;');
             }
+
+            // Use createRpcMethod and add proper indentation for service methods
+            const rpcMethod = createRpcMethod(methodName, requestType, returnType, this.includeComments, operationDescription, rpcOptions);
             
-            return createRpcMethod(methodName, requestType, returnType, this.includeComments, operationDescription);
+            // Add 2-space indentation to each line for service method formatting
+            return rpcMethod.split('\n').map(line => line ? `  ${line}` : line).join('\n');
         });
     }
 

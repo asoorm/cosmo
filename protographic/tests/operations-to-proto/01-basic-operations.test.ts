@@ -360,4 +360,112 @@ describe('Operations to Proto - Basic Operations', () => {
     expect(protoText).toContain('google.protobuf.StringValue optional_field');
     expect(protoText).toContain('string required_field');
   });
+
+  test('should add idempotency option to query operations when enabled', () => {
+    const operations = [
+      {
+        name: 'GetEmployee',
+        content: `
+          query GetEmployee($id: Int!) {
+            employee(id: $id) {
+              id
+              tag
+            }
+          }
+        `
+      },
+      {
+        name: 'UpdateEmployee',
+        content: `
+          mutation UpdateEmployee($id: Int!, $tag: String!) {
+            updateEmployeeTag(id: $id, tag: $tag) {
+              id
+              tag
+            }
+          }
+        `
+      }
+    ];
+
+    const visitor = new OperationToProtoVisitor(schema, operations, {
+      serviceName: 'EmployeeService',
+      packageName: 'employee.v1',
+      markQueriesIdempotent: true
+    });
+
+    const protoText = visitor.visit();
+
+    // Validate Proto definition
+    expectValidProto(protoText);
+
+    // Query should have idempotency option when enabled
+    expect(protoText).toContain('rpc GetEmployee(GetEmployeeRequest) returns (GetEmployeeResponse) {\n    option idempotency_level = NO_SIDE_EFFECTS;\n  }');
+    
+    // Mutation should NOT have idempotency option
+    expect(protoText).toContain('rpc UpdateEmployee(UpdateEmployeeRequest) returns (UpdateEmployeeResponse) {}');
+    
+    // Verify the idempotency option is not applied to mutations
+    expect(protoText).not.toContain('UpdateEmployee(UpdateEmployeeRequest) returns (UpdateEmployeeResponse) {\n    option idempotency_level = NO_SIDE_EFFECTS;');
+  });
+
+  test('should not add idempotency option to query operations when disabled', () => {
+    const operations = [
+      {
+        name: 'GetEmployee',
+        content: `
+          query GetEmployee($id: Int!) {
+            employee(id: $id) {
+              id
+              tag
+            }
+          }
+        `
+      }
+    ];
+
+    const visitor = new OperationToProtoVisitor(schema, operations, {
+      serviceName: 'EmployeeService',
+      packageName: 'employee.v1',
+      markQueriesIdempotent: false
+    });
+
+    const protoText = visitor.visit();
+
+    // Validate Proto definition
+    expectValidProto(protoText);
+
+    // Query should NOT have idempotency option when disabled
+    expect(protoText).toContain('rpc GetEmployee(GetEmployeeRequest) returns (GetEmployeeResponse) {}');
+    expect(protoText).not.toContain('option idempotency_level = NO_SIDE_EFFECTS;');
+  });
+
+  test('should not add idempotency option to query operations by default', () => {
+    const operations = [
+      {
+        name: 'GetEmployee',
+        content: `
+          query GetEmployee($id: Int!) {
+            employee(id: $id) {
+              id
+              tag
+            }
+          }
+        `
+      }
+    ];
+
+    const visitor = new OperationToProtoVisitor(schema, operations, {
+      serviceName: 'EmployeeService',
+      packageName: 'employee.v1'
+    });
+
+    const protoText = visitor.visit();
+
+    // Validate Proto definition
+    expectValidProto(protoText);
+
+    // Query should NOT have idempotency option by default
+    expect(protoText).toContain('rpc GetEmployee(GetEmployeeRequest) returns (GetEmployeeResponse) {}');
+    expect(protoText).not.toContain('option idempotency_level = NO_SIDE_EFFECTS;');
+  });
 });

@@ -245,14 +245,15 @@ export function buildProtoHeader(packageName: string, imports: string[], options
 }
 
 /**
- * Create an RPC method definition with optional comment
+ * Create an RPC method definition with optional comment and options
  *
  * @param methodName - The name of the RPC method
  * @param requestName - The request message name
  * @param responseName - The response message name
  * @param includeComments - Whether to include comments in the output
  * @param description - Optional description for the method
- * @returns The RPC method definition with or without comment
+ * @param options - Optional RPC options to include in the method definition
+ * @returns The RPC method definition with or without comment and options
  */
 export function createRpcMethod(
     methodName: string,
@@ -260,16 +261,31 @@ export function createRpcMethod(
     responseName: string,
     includeComments: boolean,
     description?: string | null,
+    options?: string[]
 ): string {
+    const hasOptions = options && options.length > 0;
+    
     if (!includeComments || !description) {
-        return `rpc ${methodName}(${requestName}) returns (${responseName}) {}`;
+        if (!hasOptions) {
+            return `rpc ${methodName}(${requestName}) returns (${responseName}) {}`;
+        } else {
+            const optionsStr = options.map(opt => `  ${opt}`).join('\n');
+            return `rpc ${methodName}(${requestName}) returns (${responseName}) {\n${optionsStr}\n}`;
+        }
     }
 
     // RPC method comments should be indented 1 level (2 spaces)
     const commentLines = formatComment(description, includeComments, 1);
-    const methodLine = `  rpc ${methodName}(${requestName}) returns (${responseName}) {}`;
-
-    return [...commentLines, methodLine].join('\n');
+    
+    if (!hasOptions) {
+        const methodLine = `  rpc ${methodName}(${requestName}) returns (${responseName}) {}`;
+        return [...commentLines, methodLine].join('\n');
+    } else {
+        const methodStart = `  rpc ${methodName}(${requestName}) returns (${responseName}) {`;
+        const optionsStr = options.map(opt => `    ${opt}`).join('\n');
+        const methodEnd = '  }';
+        return [...commentLines, methodStart, optionsStr, methodEnd].join('\n');
+    }
 }
 
 /**

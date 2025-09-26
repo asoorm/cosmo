@@ -438,6 +438,7 @@ export class GraphQLToProtoTextVisitor {
         const rpcMethodText = allRpcMethods[methodIndex];
         if (rpcMethodText.includes('\n')) {
           // For multi-line RPC method definitions (with comments), add each line separately
+          // The comment lines already have proper indentation from createRpcMethod
           const lines = rpcMethodText.split('\n');
           protoContent.push(...lines);
         } else {
