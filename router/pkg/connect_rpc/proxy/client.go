@@ -1,12 +1,14 @@
 package proxy
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"connectrpc.com/connect"
@@ -103,6 +105,121 @@ func (c *Client) ExecuteOperation(ctx context.Context, operationDocument ast.Doc
 	}
 
 	return &gqlResp, nil
+}
+
+// ExecuteSubscription executes a GraphQL subscription with streaming callback
+func (c *Client) ExecuteSubscription(ctx context.Context, operationDocument ast.Document, operationName string, variables map[string]interface{}, callback func(interface{}) error) error {
+	fmt.Printf("🚀 PROXY CLIENT: Starting subscription execution\n")
+	fmt.Printf("   Operation: %s\n", operationName)
+	fmt.Printf("   Variables: %+v\n", variables)
+
+	var buf bytes.Buffer
+	err := astprinter.PrintIndent(&operationDocument, []byte("  "), &buf)
+	if err != nil {
+		return fmt.Errorf("failed to print GraphQL document: %w", err)
+	}
+
+	queryString := buf.String()
+	fmt.Printf("📝 PROXY CLIENT: GraphQL Query:\n%s\n", queryString)
+
+	// Create GraphQL payload
+	payload := GraphQLPayload{
+		Query:         queryString,
+		OperationName: operationName,
+		Variables:     variables,
+	}
+
+	// Marshal payload to JSON
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal GraphQL payload: %w", err)
+	}
+
+	fmt.Printf("📤 PROXY CLIENT: Sending to endpoint: %s\n", c.endpoint)
+	fmt.Printf("📦 PROXY CLIENT: Payload: %s\n", string(payloadBytes))
+
+	// Create HTTP request for subscription (typically SSE)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(payloadBytes))
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	// Set headers for GraphQL subscription streaming
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Cache-Control", "no-cache")
+
+	// Copy authorization header from context if available
+	if auth := getAuthFromContext(ctx); auth != "" {
+		req.Header.Set("Authorization", auth)
+	}
+
+	fmt.Printf("🔗 PROXY CLIENT: Request headers: %+v\n", req.Header)
+
+	// Execute streaming request
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		fmt.Printf("❌ PROXY CLIENT: Request failed: %v\n", err)
+		return fmt.Errorf("GraphQL subscription request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("📥 PROXY CLIENT: Response status: %d\n", resp.StatusCode)
+	fmt.Printf("📋 PROXY CLIENT: Response headers: %+v\n", resp.Header)
+
+	// Check HTTP status
+	if resp.StatusCode != http.StatusOK {
+		responseBody, _ := io.ReadAll(resp.Body)
+		fmt.Printf("❌ PROXY CLIENT: Bad status response: %s\n", string(responseBody))
+		return fmt.Errorf("GraphQL subscription server returned status %d: %s", resp.StatusCode, string(responseBody))
+	}
+
+	// Process streaming response
+	fmt.Printf("🔄 PROXY CLIENT: Starting stream processing\n")
+	return c.processStreamingResponse(ctx, resp, callback)
+}
+
+// processStreamingResponse handles SSE streaming responses
+func (c *Client) processStreamingResponse(ctx context.Context, resp *http.Response, callback func(interface{}) error) error {
+	scanner := bufio.NewScanner(resp.Body)
+
+	for scanner.Scan() {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			line := scanner.Text()
+
+			// Parse SSE format
+			if strings.HasPrefix(line, "data: ") {
+				data := strings.TrimPrefix(line, "data: ")
+
+				// Skip empty data lines
+				if strings.TrimSpace(data) == "" {
+					continue
+				}
+
+				var gqlResp GraphQLResponse
+				if err := json.Unmarshal([]byte(data), &gqlResp); err != nil {
+					// Skip malformed data but continue processing
+					continue
+				}
+
+				// Check for GraphQL errors
+				if len(gqlResp.Errors) > 0 {
+					// Convert GraphQL errors to Go error
+					return fmt.Errorf("GraphQL subscription error: %v", gqlResp.Errors)
+				}
+
+				// Call callback with streaming data
+				if err := callback(gqlResp.Data); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return scanner.Err()
 }
 
 // getAuthFromContext extracts authorization header from context

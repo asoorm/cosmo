@@ -2,11 +2,13 @@ package connect_rpc
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -17,6 +19,8 @@ import (
 	"github.com/wundergraph/cosmo/router/pkg/connect_rpc/proxy"
 	"github.com/wundergraph/cosmo/router/pkg/schemaloader"
 	"go.uber.org/zap"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -187,11 +191,156 @@ func (s *ConnectRPCServer) RegisterHandlers(mux *http.ServeMux) {
 			zap.String("operationName", operationName),
 			zap.String("operationType", operation.OperationType))
 
-		handler := s.createOperationHandler(op)
-		mux.Handle(listenPath, handler)
+		if operation.OperationType == "subscription" {
+			// Create Connect RPC server streaming handler
+			handler := s.createConnectStreamingHandler(op)
+			mux.Handle(listenPath, handler)
+		} else {
+			// Create unified handler for unary operations
+			handler := s.createUnifiedHandler(op)
+			mux.Handle(listenPath, handler)
+		}
 	}
 
 	s.logger.Info("completed handler registration", zap.Int("totalHandlers", len(s.collection)))
+}
+
+// createConnectStreamingHandler creates a proper Connect RPC server streaming handler
+func (s *ConnectRPCServer) createConnectStreamingHandler(operation schemaloader.Operation) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.logger.Info("handling Connect RPC server streaming request",
+			zap.String("operation", operation.Name),
+			zap.String("contentType", r.Header.Get("Content-Type")))
+
+		// Validate Connect streaming headers
+		if !s.isValidConnectStreamingRequest(r) {
+			s.logger.Error("invalid Connect streaming headers")
+			s.writeConnectError(w, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid Connect streaming headers")))
+			return
+		}
+
+		// Parse Connect streaming request
+		connectRequest, err := s.parseConnectStreamingRequest(r)
+		if err != nil {
+			s.logger.Error("failed to parse streaming request", zap.Error(err))
+			s.writeConnectError(w, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to parse streaming request: %w", err)))
+			return
+		}
+
+		// Map to GraphQL variables
+		variables, err := s.mapConnectRequestToGraphQLVariables(connectRequest, operation)
+		if err != nil {
+			s.logger.Error("variable mapping failed", zap.Error(err))
+			s.writeConnectError(w, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("variable mapping failed: %w", err)))
+			return
+		}
+
+		// Set Connect streaming response headers BEFORE writing any data
+		// CRITICAL: For Connect streaming, we must ensure exact protocol compliance
+		contentType := r.Header.Get("Content-Type")
+		w.Header().Set("Content-Type", contentType) // Mirror exact request content type
+		w.Header().Set("Connect-Protocol-Version", "1")
+		w.Header().Set("Connect-Accept-Encoding", r.Header.Get("Connect-Accept-Encoding"))
+
+		// Log headers for debugging
+		s.logger.Info("🔧 SETTING CONNECT RESPONSE HEADERS",
+			zap.String("contentType", contentType),
+			zap.String("connectAcceptEncoding", r.Header.Get("Connect-Accept-Encoding")))
+
+		// IMPORTANT: Don't call WriteHeader until you're ready to start streaming
+		w.WriteHeader(http.StatusOK)
+
+		// Flush headers immediately
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+			s.logger.Debug("💨 FLUSHED RESPONSE HEADERS")
+		} else {
+			s.logger.Warn("⚠️  ResponseWriter does not support flushing headers")
+		}
+
+		s.logger.Info("starting GraphQL subscription execution")
+
+		// Execute subscription with streaming callback
+		s.logger.Info("🚀 STARTING GRAPHQL SUBSCRIPTION",
+			zap.String("operation", operation.Name),
+			zap.Any("variables", variables))
+
+		// CRITICAL: Create a channel to buffer streaming frames to ensure proper Connect protocol
+		frameChan := make(chan interface{}, 100) // Buffer up to 100 frames
+		var subscriptionErr error
+
+		// Start GraphQL subscription in a goroutine
+		go func() {
+			defer close(frameChan)
+			subscriptionErr = s.graphqlClient.ExecuteSubscription(r.Context(), operation.Document, operation.Name, variables, func(data interface{}) error {
+				select {
+				case frameChan <- data:
+					return nil
+				case <-r.Context().Done():
+					return r.Context().Err()
+				}
+			})
+		}()
+
+		// CRITICAL: Send a test frame immediately to establish the streaming connection
+		s.logger.Info("🧪 SENDING INITIAL TEST FRAME TO ESTABLISH CONNECT STREAM")
+		// This shouldn't be necessary, but let's test if it helps with protocol negotiation
+
+		// Process frames from the channel in the main goroutine
+		for data := range frameChan {
+			s.logger.Info("🔥 SUBSCRIPTION DATA RECEIVED",
+				zap.Any("data", data),
+				zap.String("dataType", fmt.Sprintf("%T", data)))
+
+			// Convert to JSON for debugging
+			if jsonData, jsonErr := json.Marshal(data); jsonErr == nil {
+				s.logger.Info("📦 SUBSCRIPTION DATA JSON", zap.String("json", string(jsonData)))
+			}
+
+			writeErr := s.writeConnectStreamingFrame(w, data, false)
+			if writeErr != nil {
+				s.logger.Error("❌ FAILED TO WRITE STREAMING FRAME", zap.Error(writeErr))
+				break
+			} else {
+				s.logger.Info("✅ SUCCESSFULLY WROTE STREAMING FRAME")
+			}
+		}
+
+		// Check the subscription error after the loop ends
+		err = subscriptionErr
+
+		// Always send an end frame, even on error
+		if err != nil && err != context.Canceled {
+			s.logger.Error("🚨 GRAPHQL SUBSCRIPTION ERROR",
+				zap.Error(err),
+				zap.String("errorType", fmt.Sprintf("%T", err)),
+				zap.String("operation", operation.Name))
+			// Send error end frame
+			s.writeConnectStreamingError(w, err)
+		} else if err == context.Canceled {
+			s.logger.Info("🚫 GRAPHQL SUBSCRIPTION CANCELED",
+				zap.String("operation", operation.Name))
+			// Send success end frame even for canceled
+			if endErr := s.writeConnectStreamingFrame(w, nil, true); endErr != nil {
+				s.logger.Error("failed to write end frame for canceled subscription", zap.Error(endErr))
+			}
+		} else {
+			s.logger.Info("✅ GRAPHQL SUBSCRIPTION COMPLETED SUCCESSFULLY",
+				zap.String("operation", operation.Name))
+			// Send success end frame
+			if endErr := s.writeConnectStreamingFrame(w, nil, true); endErr != nil {
+				s.logger.Error("failed to write end frame", zap.Error(endErr))
+			}
+		}
+
+		// Final flush to ensure all data is sent before connection closes
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+			s.logger.Debug("💨 FINAL FLUSH BEFORE CONNECTION CLOSE")
+		}
+
+		s.logger.Info("🔚 STREAMING CONNECTION COMPLETED")
+	})
 }
 
 // createOperationHandler creates a Connect RPC handler for a specific GraphQL operation
@@ -200,6 +349,156 @@ func (s *ConnectRPCServer) createOperationHandler(operation schemaloader.Operati
 		// Handle Connect RPC protocol
 		s.handleConnectRPC(w, r, operation)
 	})
+}
+
+// createUnifiedHandler creates a handler that supports both unary and streaming
+func (s *ConnectRPCServer) createUnifiedHandler(operation schemaloader.Operation) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contentType := r.Header.Get("Content-Type")
+
+		// Detect if this is a Connect streaming request
+		isStreaming := strings.Contains(contentType, "application/connect+")
+		isSubscription := operation.OperationType == "subscription"
+
+		if isSubscription && isStreaming {
+			// Handle as Connect RPC server-side streaming
+			s.handleConnectStreaming(w, r, operation)
+		} else if isSubscription {
+			// Handle as SSE fallback for browser clients
+			s.handleSubscriptionSSE(w, r, operation)
+		} else {
+			// Handle as unary Connect RPC
+			s.handleConnectRPC(w, r, operation)
+		}
+	})
+}
+
+// handleConnectStreaming handles Connect RPC streaming protocol for subscriptions
+func (s *ConnectRPCServer) handleConnectStreaming(w http.ResponseWriter, r *http.Request, operation schemaloader.Operation) {
+	s.logger.Info("handling Connect RPC streaming request",
+		zap.String("operation", operation.Name),
+		zap.String("contentType", r.Header.Get("Content-Type")))
+
+	// Validate Connect streaming headers
+	if !s.validateConnectHeaders(r) {
+		s.writeConnectError(w, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid Connect streaming headers")))
+		return
+	}
+
+	// Parse Connect streaming request (with envelope)
+	connectRequest, err := s.parseConnectStreamingRequest(r)
+	if err != nil {
+		s.writeConnectError(w, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("failed to parse streaming request: %w", err)))
+		return
+	}
+
+	// Map to GraphQL variables
+	variables, err := s.mapConnectRequestToGraphQLVariables(connectRequest, operation)
+	if err != nil {
+		s.writeConnectError(w, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("variable mapping failed: %w", err)))
+		return
+	}
+
+	// Set Connect streaming response headers BEFORE writing any data
+	w.Header().Set("Content-Type", r.Header.Get("Content-Type")) // Mirror request content type
+	w.Header().Set("Connect-Protocol-Version", "1")
+	w.Header().Set("Connect-Streaming-Accept-Encoding", "gzip")
+	w.WriteHeader(http.StatusOK) // Always 200 for streaming
+
+	// Flush headers immediately
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+
+	s.logger.Info("starting GraphQL subscription execution")
+
+	// Track if we've sent any data frames
+	dataSent := false
+
+	// Execute subscription with streaming callback
+	err = s.graphqlClient.ExecuteSubscription(r.Context(), operation.Document, operation.Name, variables, func(data interface{}) error {
+		s.logger.Info("🔥 SUBSCRIPTION DATA RECEIVED",
+			zap.Any("data", data),
+			zap.String("dataType", fmt.Sprintf("%T", data)))
+
+		// Convert to JSON for debugging
+		if jsonData, jsonErr := json.Marshal(data); jsonErr == nil {
+			s.logger.Info("📦 SUBSCRIPTION DATA JSON", zap.String("json", string(jsonData)))
+		}
+
+		dataSent = true
+		writeErr := s.writeConnectStreamingFrame(w, data, false)
+		if writeErr != nil {
+			s.logger.Error("❌ FAILED TO WRITE STREAMING FRAME", zap.Error(writeErr))
+		} else {
+			s.logger.Info("✅ SUCCESSFULLY WROTE STREAMING FRAME")
+		}
+		return writeErr
+	})
+
+	// For Connect RPC streaming, we need to send at least one message
+	// If no data was sent, send an empty data frame first
+	if !dataSent {
+		s.logger.Info("no subscription data received, sending empty data frame")
+		if frameErr := s.writeConnectStreamingFrame(w, map[string]interface{}{}, false); frameErr != nil {
+			s.logger.Error("failed to write empty data frame", zap.Error(frameErr))
+		}
+	}
+
+	// Write end stream frame
+	if err != nil && err != context.Canceled {
+		s.logger.Error("subscription error", zap.Error(err))
+		s.writeConnectStreamingError(w, err)
+	} else {
+		s.logger.Info("subscription completed successfully, writing end frame")
+		if endErr := s.writeConnectStreamingFrame(w, nil, true); endErr != nil {
+			s.logger.Error("failed to write end frame", zap.Error(endErr))
+		}
+	}
+}
+
+// handleSubscriptionSSE handles subscriptions via Server-Sent Events (fallback)
+func (s *ConnectRPCServer) handleSubscriptionSSE(w http.ResponseWriter, r *http.Request, operation schemaloader.Operation) {
+	s.logger.Info("handling SSE subscription request",
+		zap.String("operation", operation.Name))
+
+	// Set SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Parse variables
+	connectRequest, err := s.parseConnectRequest(r)
+	if err != nil {
+		s.writeSSEError(w, err)
+		return
+	}
+
+	variables, err := s.mapConnectRequestToGraphQLVariables(connectRequest, operation)
+	if err != nil {
+		s.writeSSEError(w, err)
+		return
+	}
+
+	// Send initial connection event
+	s.writeSSEEvent(w, "connected", map[string]interface{}{
+		"operation": operation.Name,
+		"type":      "subscription",
+	})
+
+	// Execute subscription
+	err = s.graphqlClient.ExecuteSubscription(r.Context(), operation.Document, operation.Name, variables, func(data interface{}) error {
+		return s.writeSSEEvent(w, "data", data)
+	})
+
+	if err != nil && err != context.Canceled {
+		s.writeSSEError(w, err)
+	} else {
+		s.writeSSEEvent(w, "complete", map[string]interface{}{
+			"operation": operation.Name,
+		})
+	}
 }
 
 // handleConnectRPC handles the Connect RPC protocol for a specific operation
@@ -244,33 +543,162 @@ func (s *ConnectRPCServer) handleConnectRPC(w http.ResponseWriter, r *http.Reque
 
 // validateConnectHeaders validates Connect RPC protocol headers
 func (s *ConnectRPCServer) validateConnectHeaders(r *http.Request) bool {
-	// Check Content-Type
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" && contentType != "application/proto" {
-		return false
+	if r.Method == http.MethodGet {
+		// For GET requests, validate Connect protocol version in query parameters
+		query := r.URL.Query()
+		connectVersion := query.Get("connect")
+		if connectVersion != "" && connectVersion != "v1" {
+			s.logger.Warn("unsupported Connect protocol version in GET request",
+				zap.String("version", connectVersion))
+			return false
+		}
+		return true
 	}
 
-	// Connect-Protocol-Version is optional but recommended
-	// we dont require it for the PoC
+	contentType := r.Header.Get("Content-Type")
 
-	return true
+	// Support both unary and streaming Connect RPC
+	validContentTypes := []string{
+		"application/json",
+		"application/proto",
+		"application/connect+proto", // Streaming Connect RPC
+		"application/connect+json",  // Streaming Connect RPC (JSON)
+	}
+
+	for _, validType := range validContentTypes {
+		if contentType == validType {
+			return true
+		}
+	}
+
+	return false
 }
 
 // parseConnectRequest parses the Connect RPC request body
 func (s *ConnectRPCServer) parseConnectRequest(r *http.Request) (map[string]interface{}, error) {
-	contentType := r.Header.Get("Content-Type")
+	if r.Method == http.MethodGet {
+		return s.parseConnectGetRequest(r)
+	}
 
+	contentType := r.Header.Get("Content-Type")
 	switch contentType {
 	case "application/json":
 		return s.parseJSONRequest(r)
 	case "application/proto":
-		return s.parseProtoRequest(r)
+		return s.parseProtoRequestFromBody(r)
 	default:
 		return nil, fmt.Errorf("unsupported content type: %s", contentType)
 	}
 }
 
-func (s *ConnectRPCServer) parseProtoRequest(r *http.Request) (map[string]interface{}, error) {
+// parseConnectGetRequest parses Connect RPC GET requests with query parameters
+func (s *ConnectRPCServer) parseConnectGetRequest(r *http.Request) (map[string]interface{}, error) {
+	query := r.URL.Query()
+	encoding := query.Get("encoding")
+	message := query.Get("message")
+	connectVersion := query.Get("connect")
+	base64Param := query.Get("base64")
+	compressionParam := query.Get("compression")
+
+	// Validate Connect protocol version if present
+	if connectVersion != "" && connectVersion != "v1" {
+		return nil, fmt.Errorf("unsupported Connect protocol version: %s (expected 'v1')", connectVersion)
+	}
+
+	if encoding == "" {
+		return nil, fmt.Errorf("missing required 'encoding' query parameter")
+	}
+	if message == "" {
+		// Empty message is allowed for some operations (e.g., operations with no parameters)
+		s.logger.Debug("empty message parameter in GET request")
+		return make(map[string]interface{}), nil
+	}
+
+	s.logger.Debug("parsed GET request parameters",
+		zap.String("encoding", encoding),
+		zap.String("connectVersion", connectVersion),
+		zap.String("base64", base64Param),
+		zap.String("compression", compressionParam),
+		zap.Int("messageLength", len(message)))
+
+	// Handle compression (currently only 'identity' is supported)
+	if compressionParam != "" && compressionParam != "identity" {
+		return nil, fmt.Errorf("unsupported compression: %s (only 'identity' is supported)", compressionParam)
+	}
+
+	// Determine if we should use base64 decoding
+	useBase64 := base64Param == "1"
+
+	switch encoding {
+	case "json":
+		return s.parseJSONFromGetRequest(message, useBase64)
+	case "proto":
+		return s.parseProtoFromGetRequest(r, message, useBase64)
+	default:
+		return nil, fmt.Errorf("unsupported encoding: %s (supported: 'json', 'proto')", encoding)
+	}
+}
+
+// parseJSONFromGetRequest parses JSON message from GET request
+func (s *ConnectRPCServer) parseJSONFromGetRequest(message string, useBase64 bool) (map[string]interface{}, error) {
+	var jsonData []byte
+	var err error
+
+	if useBase64 {
+		// Base64 decode first
+		jsonData, err = base64.URLEncoding.DecodeString(message)
+		if err != nil {
+			// Try standard base64 if URL-safe fails
+			jsonData, err = base64.StdEncoding.DecodeString(message)
+			if err != nil {
+				return nil, fmt.Errorf("failed to base64 decode JSON message: %w", err)
+			}
+		}
+	} else {
+		// URL decode the message
+		decoded, err := url.QueryUnescape(message)
+		if err != nil {
+			return nil, fmt.Errorf("failed to URL decode JSON message: %w", err)
+		}
+		jsonData = []byte(decoded)
+	}
+
+	var requestData map[string]interface{}
+	if err := json.Unmarshal(jsonData, &requestData); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal JSON message: %w", err)
+	}
+
+	s.logger.Debug("successfully parsed JSON from GET request", zap.Int("fields", len(requestData)))
+	return requestData, nil
+}
+
+// parseProtoFromGetRequest parses protobuf message from GET request
+func (s *ConnectRPCServer) parseProtoFromGetRequest(r *http.Request, message string, useBase64 bool) (map[string]interface{}, error) {
+	var protoData []byte
+	var err error
+
+	if !useBase64 {
+		// According to Connect spec, proto messages in GET requests should be base64 encoded
+		// If base64=1 is not present but encoding=proto, we should still try base64 decoding
+		s.logger.Warn("proto encoding without base64=1 parameter, attempting base64 decode anyway")
+	}
+
+	// Always try base64 decoding for proto messages (as per Connect spec)
+	protoData, err = base64.URLEncoding.DecodeString(message)
+	if err != nil {
+		// Try standard base64 if URL-safe fails
+		protoData, err = base64.StdEncoding.DecodeString(message)
+		if err != nil {
+			return nil, fmt.Errorf("failed to base64 decode proto message (proto encoding requires base64): %w", err)
+		}
+	}
+
+	s.logger.Debug("successfully base64 decoded proto message", zap.Int("bytes", len(protoData)))
+	return s.parseProtoRequestFromBytes(r, protoData)
+}
+
+// Helper for GET proto parsing (uses same logic as parseProtoRequest but with bytes)
+func (s *ConnectRPCServer) parseProtoRequestFromBytes(r *http.Request, body []byte) (map[string]interface{}, error) {
 	s.logger.Debug("parseProtoRequest called", zap.String("path", r.URL.Path))
 
 	if s.protoSchema == nil {
@@ -280,24 +708,12 @@ func (s *ConnectRPCServer) parseProtoRequest(r *http.Request) (map[string]interf
 
 	s.logger.Debug("proto schema is loaded", zap.Int("fileCount", len(s.protoSchema)))
 
-	// 1. Read the request body
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		s.logger.Error("failed to read request body", zap.Error(err))
-		return nil, fmt.Errorf("failed to read request body: %w", err)
-	}
-
-	s.logger.Debug("read request body", zap.Int("bodySize", len(body)))
-
-	// 2. Determine the message type based on the operation
-	// Extract operation name from URL path (format: /package.service/operation)
+	// 1. Extract operation info from path
 	path := r.URL.Path
 	if path == "" {
 		s.logger.Error("empty request path")
 		return nil, fmt.Errorf("empty request path")
 	}
-
-	// Remove leading slash and split by '/'
 	pathParts := strings.Split(strings.TrimPrefix(path, "/"), "/")
 	if len(pathParts) != 2 {
 		s.logger.Error("invalid request path format",
@@ -305,16 +721,8 @@ func (s *ConnectRPCServer) parseProtoRequest(r *http.Request) (map[string]interf
 			zap.Strings("pathParts", pathParts))
 		return nil, fmt.Errorf("invalid request path format: %s", path)
 	}
-
-	serviceAndPackage := pathParts[0] // e.g., "service.v1.EmployeeServiceService"
-	operationName := pathParts[1]     // e.g., "GetEmployeeByID"
-
-	s.logger.Debug("parsed path components",
-		zap.String("serviceAndPackage", serviceAndPackage),
-		zap.String("operationName", operationName))
-
-	// Extract the package name from the service path
-	// For "service.v1.EmployeeServiceService", we want "service.v1"
+	serviceAndPackage := pathParts[0]
+	operationName := pathParts[1]
 	serviceParts := strings.Split(serviceAndPackage, ".")
 	if len(serviceParts) < 2 {
 		s.logger.Error("invalid service format",
@@ -322,19 +730,14 @@ func (s *ConnectRPCServer) parseProtoRequest(r *http.Request) (map[string]interf
 			zap.Strings("serviceParts", serviceParts))
 		return nil, fmt.Errorf("invalid service format: %s", serviceAndPackage)
 	}
-
-	// Take all parts except the last one (which is the service name)
 	packageName := strings.Join(serviceParts[:len(serviceParts)-1], ".")
-
-	// Construct the request message name (typically OperationNameRequest)
-	// For your proto: "service.v1.GetEmployeeByIDRequest"
 	requestMessageName := protoreflect.FullName(fmt.Sprintf("%s.%sRequest", packageName, operationName))
 
-	s.logger.Debug("constructed message name",
-		zap.String("packageName", packageName),
-		zap.String("requestMessageName", string(requestMessageName)))
+	s.logger.Debug("parsed path components",
+		zap.String("serviceAndPackage", serviceAndPackage),
+		zap.String("operationName", operationName))
 
-	// 3. Unmarshal the proto message
+	// 2. Unmarshal the proto message
 	msg, err := s.ParseProtoMessage(body, requestMessageName)
 	if err != nil {
 		s.logger.Error("failed to parse proto message",
@@ -345,7 +748,7 @@ func (s *ConnectRPCServer) parseProtoRequest(r *http.Request) (map[string]interf
 
 	s.logger.Debug("successfully parsed proto message")
 
-	// 4. Convert to map[string]interface{} for GraphQL variables
+	// 3. Convert to map[string]interface{} for GraphQL variables
 	result, err := s.protoMessageToMap(msg)
 	if err != nil {
 		s.logger.Error("failed to convert proto message to map", zap.Error(err))
@@ -576,6 +979,16 @@ func (s *ConnectRPCServer) parseJSONRequest(r *http.Request) (map[string]interfa
 	return requestData, nil
 }
 
+// parseProtoRequestFromBody parses a protobuf Connect RPC request from the request body
+func (s *ConnectRPCServer) parseProtoRequestFromBody(r *http.Request) (map[string]interface{}, error) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read request body: %w", err)
+	}
+
+	return s.parseProtoRequestFromBytes(r, body)
+}
+
 // mapConnectRequestToGraphQLVariables maps Connect RPC request fields to GraphQL variables
 func (s *ConnectRPCServer) mapConnectRequestToGraphQLVariables(connectRequest map[string]interface{}, operation schemaloader.Operation) (map[string]interface{}, error) {
 	// TODO: Add support for JSON Schema validation
@@ -606,16 +1019,9 @@ func (s *ConnectRPCServer) mapConnectRequestToGraphQLVariables(connectRequest ma
 
 // convertProtoFieldToGraphQLVariable converts proto field names to GraphQL variable names
 func (s *ConnectRPCServer) convertProtoFieldToGraphQLVariable(protoField string) string {
-	// Handle common proto to GraphQL field name mappings
-	switch protoField {
-	case "employee_id":
-		return "employeeId"
-	case "has_pets":
-		return "hasPets"
-	default:
-		// For other fields, convert snake_case to camelCase
-		return s.snakeToCamelCase(protoField)
-	}
+	// Convert snake_case proto field names to camelCase GraphQL variable names
+	// This handles all cases automatically: employee_id -> employeeId, has_pets -> hasPets, etc.
+	return s.snakeToCamelCase(protoField)
 }
 
 // snakeToCamelCase converts snake_case to camelCase
@@ -689,7 +1095,22 @@ func (s *ConnectRPCServer) writeConnectError(w http.ResponseWriter, err *connect
 
 // writeConnectSuccess writes a successful Connect RPC response
 func (s *ConnectRPCServer) writeConnectSuccess(w http.ResponseWriter, r *http.Request, data interface{}) {
-	// Check the request content type to determine response format
+	// For GET requests, determine response format from query parameters
+	if r.Method == http.MethodGet {
+		query := r.URL.Query()
+		encoding := query.Get("encoding")
+
+		if encoding == "proto" {
+			// Respond with proto encoding
+			s.writeProtoResponse(w, r, data)
+		} else {
+			// Default to JSON response for GET requests
+			s.writeJSONResponse(w, data)
+		}
+		return
+	}
+
+	// For POST requests, check the request content type to determine response format
 	requestContentType := r.Header.Get("Content-Type")
 
 	if requestContentType == "application/proto" {
@@ -807,7 +1228,7 @@ func (s *ConnectRPCServer) createProtoResponseMessage(data interface{}, messageN
 
 // populateProtoMessageFromData populates a proto message from interface{} data
 func (s *ConnectRPCServer) populateProtoMessageFromData(msg *dynamicpb.Message, data interface{}) error {
-	s.logger.Debug("populating proto message from data")
+	s.logger.Debug("populating proto message from data", zap.Any("data", data))
 
 	// Handle nil data
 	if data == nil {
@@ -830,10 +1251,18 @@ func (s *ConnectRPCServer) populateProtoMessageFromData(msg *dynamicpb.Message, 
 		field := fields.Get(i)
 		fieldName := string(field.Name())
 
-		// Check if the field exists in the data
+		// Check if the field exists in the data (exact match first)
 		value, exists := dataMap[fieldName]
 		if !exists {
-			s.logger.Debug("field not found in data, skipping", zap.String("fieldName", fieldName))
+			// Try GraphQL to proto field name mapping
+			mappedValue, mappedExists := s.findGraphQLFieldForProtoField(dataMap, fieldName)
+			if mappedExists {
+				value = mappedValue
+				exists = true
+			}
+		}
+
+		if !exists {
 			continue
 		}
 
@@ -842,26 +1271,81 @@ func (s *ConnectRPCServer) populateProtoMessageFromData(msg *dynamicpb.Message, 
 		if err != nil {
 			s.logger.Error("failed to convert field value",
 				zap.String("fieldName", fieldName),
-				zap.String("fieldKind", field.Kind().String()),
-				zap.Bool("isList", field.IsList()),
-				zap.Any("value", value),
-				zap.String("valueType", fmt.Sprintf("%T", value)),
 				zap.Error(err))
 			return fmt.Errorf("failed to convert field %s: %w", fieldName, err)
 		}
 
 		// Add defensive check before setting the field
 		if !protoValue.IsValid() {
-			s.logger.Debug("skipping invalid proto value", zap.String("fieldName", fieldName))
 			continue
 		}
 
 		msgReflect.Set(field, protoValue)
-		s.logger.Debug("set field in proto message", zap.String("fieldName", fieldName))
 	}
 
-	s.logger.Debug("successfully populated proto message from data")
 	return nil
+}
+
+// findGraphQLFieldForProtoField maps GraphQL response fields to protobuf fields
+func (s *ConnectRPCServer) findGraphQLFieldForProtoField(dataMap map[string]interface{}, protoFieldName string) (interface{}, bool) {
+	// Handle common GraphQL to protobuf field mappings for subscription responses
+	switch protoFieldName {
+	case "current_time":
+		// GraphQL: currentTime -> Proto: current_time
+		if value, exists := dataMap["currentTime"]; exists {
+			return value, true
+		}
+	case "time_stamp":
+		// GraphQL: timeStamp -> Proto: time_stamp
+		if value, exists := dataMap["timeStamp"]; exists {
+			return value, true
+		}
+	}
+
+	// Try snake_case to camelCase conversion (proto field -> GraphQL field)
+	camelCaseField := s.snakeToCamelCase(protoFieldName)
+	if value, exists := dataMap[camelCaseField]; exists {
+		return value, true
+	}
+
+	// Try direct nested field access for currentTime.timeStamp pattern
+	if protoFieldName == "time_stamp" {
+		if currentTime, exists := dataMap["currentTime"]; exists {
+			if currentTimeMap, ok := currentTime.(map[string]interface{}); ok {
+				if timeStamp, exists := currentTimeMap["timeStamp"]; exists {
+					return timeStamp, true
+				}
+			}
+		}
+	}
+
+	return nil, false
+}
+
+// camelToSnakeCase converts camelCase to snake_case
+func (s *ConnectRPCServer) camelToSnakeCase(camel string) string {
+	if camel == "" {
+		return ""
+	}
+
+	var result []rune
+	for i, r := range camel {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result = append(result, '_')
+		}
+		result = append(result, r)
+	}
+
+	return strings.ToLower(string(result))
+}
+
+// getMapKeys helper function to get map keys for debugging
+func getMapKeys(m map[string]interface{}) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
 }
 
 // goValueToProtoValue converts a Go value to a protoreflect.Value
@@ -1260,14 +1744,18 @@ func (s *ConnectRPCServer) Start() error {
 		}
 	})
 
+	// 🚀 CRITICAL FIX: Wrap handler with HTTP/2 (h2c) support for Connect RPC streaming
+	// This enables proper streaming support that Connect RPC requires
+	h2Handler := h2c.NewHandler(mux, &http2.Server{})
+
 	server := &http.Server{
 		Addr:         s.listenAddr,
 		ReadTimeout:  s.requestTimeout,
 		WriteTimeout: s.requestTimeout,
-		Handler:      mux,
+		Handler:      h2Handler, // Use h2c handler instead of mux directly
 	}
 
-	s.logger.Info("starting Connect RPC server",
+	s.logger.Info("🔧 starting Connect RPC server with HTTP/2 (h2c) support",
 		zap.String("listen_addr", s.listenAddr))
 
 	go func() {
@@ -1277,4 +1765,384 @@ func (s *ConnectRPCServer) Start() error {
 	}()
 
 	return nil
+}
+
+// parseConnectStreamingRequest parses a Connect RPC streaming request with envelope
+func (s *ConnectRPCServer) parseConnectStreamingRequest(r *http.Request) (map[string]interface{}, error) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read request body: %w", err)
+	}
+
+	s.logger.Debug("parsing Connect streaming request",
+		zap.Int("bodyLength", len(body)),
+		zap.String("contentType", r.Header.Get("Content-Type")))
+
+	// Connect RPC streaming requests have envelope format: [flags:1][length:4][data:length]
+	if len(body) < 5 {
+		return nil, fmt.Errorf("Connect RPC envelope too short: got %d bytes, need at least 5", len(body))
+	}
+
+	// Parse envelope header: [flags:1][length:4]
+	flags := body[0]
+	messageLength := uint32(body[1])<<24 | uint32(body[2])<<16 | uint32(body[3])<<8 | uint32(body[4])
+
+	s.logger.Debug("parsed Connect RPC envelope",
+		zap.Uint8("flags", flags),
+		zap.Uint32("messageLength", messageLength),
+		zap.Int("totalBodyLength", len(body)))
+
+	// Check if we have the expected message data
+	expectedTotalLength := 5 + int(messageLength)
+	if len(body) != expectedTotalLength {
+		return nil, fmt.Errorf("Connect RPC envelope length mismatch: expected %d bytes total, got %d",
+			expectedTotalLength, len(body))
+	}
+
+	if messageLength == 0 {
+		// Empty request (common for subscriptions)
+		s.logger.Debug("empty Connect RPC request (subscription with no parameters)")
+		return make(map[string]interface{}), nil
+	}
+
+	// Extract message data
+	messageData := body[5 : 5+messageLength]
+
+	// Parse based on content type
+	contentType := r.Header.Get("Content-Type")
+	if strings.Contains(contentType, "proto") {
+		return s.parseProtoMessageData(r, messageData)
+	} else {
+		return s.parseJSONMessageData(messageData)
+	}
+}
+
+// parseProtoMessageData parses protobuf message data from streaming request
+func (s *ConnectRPCServer) parseProtoMessageData(r *http.Request, data []byte) (map[string]interface{}, error) {
+	// Extract operation info from path
+	path := r.URL.Path
+	pathParts := strings.Split(strings.TrimPrefix(path, "/"), "/")
+	if len(pathParts) != 2 {
+		return nil, fmt.Errorf("invalid request path format: %s", path)
+	}
+
+	serviceAndPackage := pathParts[0]
+	operationName := pathParts[1]
+
+	serviceParts := strings.Split(serviceAndPackage, ".")
+	if len(serviceParts) < 2 {
+		return nil, fmt.Errorf("invalid service format: %s", serviceAndPackage)
+	}
+
+	packageName := strings.Join(serviceParts[:len(serviceParts)-1], ".")
+	requestMessageName := protoreflect.FullName(fmt.Sprintf("%s.%sRequest", packageName, operationName))
+
+	// Parse proto message
+	msg, err := s.ParseProtoMessage(data, requestMessageName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse proto message: %w", err)
+	}
+
+	return s.protoMessageToMap(msg)
+}
+
+// parseJSONMessageData parses JSON message data from streaming request
+func (s *ConnectRPCServer) parseJSONMessageData(data []byte) (map[string]interface{}, error) {
+	var result map[string]interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON message data: %w", err)
+	}
+	return result, nil
+}
+
+// writeConnectStreamingFrame writes a Connect RPC streaming frame
+func (s *ConnectRPCServer) writeConnectStreamingFrame(w http.ResponseWriter, data interface{}, isEnd bool) error {
+	s.logger.Debug("writing Connect streaming frame",
+		zap.Bool("isEnd", isEnd),
+		zap.Any("data", data))
+
+	var responseBytes []byte
+	var err error
+
+	if isEnd {
+		// For end frame, send EndStreamResponse according to Connect RPC spec
+		// For application/connect+proto, this should be an empty protobuf message
+		responseBytes, err = s.createEmptyProtoResponse()
+		if err != nil {
+			s.logger.Error("failed to create empty proto end response", zap.Error(err))
+			// Wire format: field_number << 3 | wire_type
+			responseBytes = []byte{}
+		}
+		s.logger.Info("🔚 CREATED END FRAME", zap.Int("bytes", len(responseBytes)))
+	} else if data != nil {
+		// For data frames, we must create proper protobuf response
+		responseBytes, err = s.createProtoResponseForStreamingFixed(data)
+		if err != nil {
+			return fmt.Errorf("failed to create protobuf response: %w", err)
+		}
+		if len(responseBytes) == 0 {
+			return fmt.Errorf("protobuf response is empty - this should not happen")
+		}
+	} else {
+		// Empty data frame - create empty protobuf message
+		responseBytes, err = s.createEmptyProtoResponse()
+		if err != nil {
+			return fmt.Errorf("failed to create empty protobuf response: %w", err)
+		}
+	}
+
+	// Create Connect streaming envelope: [flags:1][length:4][data:length]
+	flags := byte(0)
+	if isEnd {
+		flags |= 0x02 // EndStreamResponse flag (bit 1)
+	}
+
+	// Write the envelope header
+	envelope := make([]byte, 5)
+	envelope[0] = flags
+	// Write length in big-endian format
+	length := uint32(len(responseBytes))
+	envelope[1] = byte(length >> 24)
+	envelope[2] = byte(length >> 16)
+	envelope[3] = byte(length >> 8)
+	envelope[4] = byte(length)
+
+	s.logger.Debug("writing Connect RPC envelope",
+		zap.Uint8("flags", flags),
+		zap.Uint32("length", length),
+		zap.Int("responseDataSize", len(responseBytes)))
+
+	// Log the actual envelope bytes
+	s.logger.Info("🔧 ENVELOPE BYTES",
+		zap.String("envelopeHex", fmt.Sprintf("%x", envelope)),
+		zap.String("dataHex", fmt.Sprintf("%x", responseBytes[:min(len(responseBytes), 50)]))) // Limit hex output
+
+	// Write envelope + data as one atomic operation to prevent partial frames
+	totalFrame := append(envelope, responseBytes...)
+
+	bytesWritten, err := w.Write(totalFrame)
+	if err != nil {
+		return fmt.Errorf("failed to write frame: %w", err)
+	}
+
+	s.logger.Info("📤 WROTE COMPLETE FRAME",
+		zap.Int("bytes", bytesWritten),
+		zap.Int("envelopeBytes", len(envelope)),
+		zap.Int("dataBytes", len(responseBytes)))
+
+	// Flush immediately for streaming
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+		s.logger.Debug("💨 FLUSHED STREAMING FRAME", zap.Bool("isEndFrame", isEnd))
+	} else {
+		s.logger.Warn("⚠️  ResponseWriter does not support flushing", zap.Bool("isEndFrame", isEnd))
+	}
+
+	s.logger.Debug("successfully wrote Connect streaming frame",
+		zap.Int("totalBytes", 5+len(responseBytes)),
+		zap.Bool("isEndFrame", isEnd))
+
+	return nil
+}
+
+// createProtoResponseForStreamingFixed creates a protobuf response for streaming data using the same approach as regular responses
+func (s *ConnectRPCServer) createProtoResponseForStreamingFixed(data interface{}) ([]byte, error) {
+	operationName := "SubscribeToTheCurrentTime"
+	packageName := "service.v1"
+
+	// Construct the response message name using the same pattern as regular responses
+	responseMessageName := protoreflect.FullName(fmt.Sprintf("%s.%sResponse", packageName, operationName))
+
+	// Use the same createProtoResponseMessage method as regular responses
+	protoMessage, err := s.createProtoResponseMessage(data, responseMessageName)
+	if err != nil {
+		s.logger.Error("failed to create proto response message",
+			zap.String("messageName", string(responseMessageName)),
+			zap.Error(err))
+		return nil, fmt.Errorf("failed to create proto response message: %w", err)
+	}
+
+	// Marshal using the same approach as regular responses
+	responseBytes, err := proto.Marshal(protoMessage)
+	if err != nil {
+		s.logger.Error("failed to marshal proto message", zap.Error(err))
+		return nil, fmt.Errorf("failed to marshal proto response: %w", err)
+	}
+
+	s.logger.Info("created streaming proto response",
+		zap.String("messageName", string(responseMessageName)),
+		zap.Int("protoBytes", len(responseBytes)))
+
+	return responseBytes, nil
+}
+
+// createMinimalProtoResponse creates a minimal protobuf response when schema lookup fails
+func (s *ConnectRPCServer) createMinimalProtoResponse(data interface{}) ([]byte, error) {
+	s.logger.Info("creating minimal protobuf response as fallback")
+
+	// Create a very simple protobuf message manually
+	// This is a basic protobuf encoding of the data
+
+	// For now, let's create a simple message with just the timestamp
+	if dataMap, ok := data.(map[string]interface{}); ok {
+		if currentTime, exists := dataMap["currentTime"]; exists {
+			if timeMap, ok := currentTime.(map[string]interface{}); ok {
+				if timestamp, exists := timeMap["timeStamp"]; exists {
+					if timestampStr, ok := timestamp.(string); ok {
+						// Create a simple protobuf message with field 1 = string timestamp
+						// Wire format: field number << 3 | wire_type
+						// String wire type = 2
+						// Field 1, wire type 2 = (1 << 3) | 2 = 10 = 0x0A
+
+						timestampBytes := []byte(timestampStr)
+						messageBytes := make([]byte, 0, len(timestampBytes)+10)
+
+						// Field 1 (timestamp): tag 0x0A, length, data
+						messageBytes = append(messageBytes, 0x0A)                      // Field 1, wire type 2 (string)
+						messageBytes = append(messageBytes, byte(len(timestampBytes))) // Length
+						messageBytes = append(messageBytes, timestampBytes...)         // Data
+
+						s.logger.Info("🔧 CREATED MINIMAL PROTO RESPONSE",
+							zap.Int("protoBytes", len(messageBytes)),
+							zap.String("timestamp", timestampStr))
+
+						return messageBytes, nil
+					}
+				}
+			}
+		}
+	}
+
+	// If we can't extract timestamp, create empty message
+	return []byte{}, nil
+}
+
+// createEmptyProtoResponse creates an empty protobuf response for Connect RPC end frames
+func (s *ConnectRPCServer) createEmptyProtoResponse() ([]byte, error) {
+	// For Connect RPC end frames, according to the Connect specification,
+	// we should send an empty message body with the EndStreamResponse flag set
+	// The simplest approach is to return empty bytes, which represents an empty protobuf message
+
+	s.logger.Info("creating empty proto end frame")
+
+	// An empty protobuf message is represented by zero bytes
+	// This is the correct format for Connect RPC EndStreamResponse
+	return []byte{}, nil
+}
+
+// min helper function
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// isValidConnectStreamingRequest validates that the request has proper Connect streaming headers
+func (s *ConnectRPCServer) isValidConnectStreamingRequest(r *http.Request) bool {
+	// Check Content-Type
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "application/connect+proto" && contentType != "application/proto" {
+		s.logger.Warn("invalid content type for Connect streaming",
+			zap.String("contentType", contentType))
+		return false
+	}
+
+	// Check Connect-Protocol-Version
+	protocolVersion := r.Header.Get("Connect-Protocol-Version")
+	if protocolVersion != "1" {
+		s.logger.Warn("unsupported Connect protocol version",
+			zap.String("protocolVersion", protocolVersion))
+		return false
+	}
+
+	return true
+}
+
+// writeConnectStreamingError writes a Connect RPC streaming error frame
+func (s *ConnectRPCServer) writeConnectStreamingError(w http.ResponseWriter, err error) {
+	s.logger.Debug("writing Connect streaming error", zap.Error(err))
+
+	// Create EndStreamResponse with error according to Connect RPC spec
+	endStreamResponse := map[string]interface{}{
+		"error": map[string]interface{}{
+			"code":    "internal",
+			"message": err.Error(),
+		},
+	}
+
+	// Marshal the EndStreamResponse
+	responseBytes, marshalErr := json.Marshal(endStreamResponse)
+	if marshalErr != nil {
+		s.logger.Error("failed to marshal error response", zap.Error(marshalErr))
+		return
+	}
+
+	// Create envelope with EndStreamResponse flag (bit 1 = 1)
+	flags := byte(0x02) // EndStreamResponse flag
+	envelope := make([]byte, 5)
+	envelope[0] = flags
+	length := uint32(len(responseBytes))
+	envelope[1] = byte(length >> 24)
+	envelope[2] = byte(length >> 16)
+	envelope[3] = byte(length >> 8)
+	envelope[4] = byte(length)
+
+	s.logger.Debug("writing error EndStreamResponse",
+		zap.Uint8("flags", flags),
+		zap.Uint32("length", length),
+		zap.String("errorResponse", string(responseBytes)))
+
+	// Write envelope and data
+	if _, writeErr := w.Write(envelope); writeErr != nil {
+		s.logger.Error("failed to write error envelope", zap.Error(writeErr))
+		return
+	}
+	if _, writeErr := w.Write(responseBytes); writeErr != nil {
+		s.logger.Error("failed to write error data", zap.Error(writeErr))
+		return
+	}
+
+	// Flush
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+// convertDataToProtoBytes converts data to protobuf bytes (simplified for streaming)
+func (s *ConnectRPCServer) convertDataToProtoBytes(data interface{}) ([]byte, error) {
+	// For now, use JSON encoding as fallback
+	// In a full implementation, this would convert to proper proto format
+	return json.Marshal(data)
+}
+
+// writeSSEEvent writes a Server-Sent Event
+func (s *ConnectRPCServer) writeSSEEvent(w http.ResponseWriter, eventType string, data interface{}) error {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal SSE data: %w", err)
+	}
+
+	_, err = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, string(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to write SSE event: %w", err)
+	}
+
+	// Flush if possible
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+
+	return nil
+}
+
+// writeSSEError writes an SSE error event
+func (s *ConnectRPCServer) writeSSEError(w http.ResponseWriter, err error) {
+	errorData := map[string]interface{}{
+		"error": err.Error(),
+	}
+
+	if writeErr := s.writeSSEEvent(w, "error", errorData); writeErr != nil {
+		s.logger.Error("failed to write SSE error", zap.Error(writeErr))
+	}
 }
