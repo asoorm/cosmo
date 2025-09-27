@@ -19,6 +19,7 @@ type CLIOptions = {
     packageName?: string;
     goPackage?: string;
     protoLock?: string;
+    markQueriesIdempotent?: boolean;
 };
 
 export default (opts: BaseCommandOptions) => {
@@ -34,6 +35,10 @@ export default (opts: BaseCommandOptions) => {
         '-l, --proto-lock <path>',
         'The path to the existing proto lock file to use as the starting point for the updated proto lock file. ' +
         'Default is to use and overwrite the output file "<outdir>/service.proto.lock.json".',
+    );
+    command.option(
+        '--mark-queries-idempotent',
+        'Add idempotency_level = NO_SIDE_EFFECTS option to query operations for GET request support.',
     );
     command.action(generateFromOperationsAction);
 
@@ -83,6 +88,7 @@ async function generateFromOperationsAction(name: string, options: CLIOptions) {
             packageName: options.packageName,
             goPackage: options.goPackage,
             lockFile: options.protoLock,
+            markQueriesIdempotent: options.markQueriesIdempotent,
         });
 
         // Write the generated files
@@ -115,6 +121,7 @@ type GenerationOptions = {
     packageName?: string;
     goPackage?: string;
     lockFile?: string;
+    markQueriesIdempotent?: boolean;
 };
 
 /**
@@ -129,6 +136,7 @@ async function generateProtoFromCollection({
                                                packageName,
                                                goPackage,
                                                lockFile = resolve(outdir, 'service.proto.lock.json'),
+                                               markQueriesIdempotent,
                                            }: GenerationOptions): Promise<GenerationResult> {
     spinner.text = 'Reading schema and collection...';
 
@@ -158,6 +166,7 @@ async function generateProtoFromCollection({
         packageName,
         goPackage,
         lockData,
+        markQueriesIdempotent,
     });
 
     return {
