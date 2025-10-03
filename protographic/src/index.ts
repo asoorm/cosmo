@@ -141,6 +141,11 @@ export type { OperationToProtoOptions, OperationInfo } from './operations-to-pro
 export type { GraphQLToProtoTextVisitorOptions } from './sdl-to-proto-visitor.js';
 export type { ProtoLock } from './proto-lock.js';
 export type { ValidationResult } from './sdl-validation-visitor.js';
+
+// Export OpenAPI utilities
+export { enhanceSDLWithOpenApiDirective, extractOpenApiMetadataFromOperation } from './openapi-preprocessor.js';
+export type { OpenApiMetadata } from './openapi-types.js';
+export { OPENAPI_DIRECTIVE_DEFINITION } from './openapi-types.js';
 export {
   GRPCMapping,
   OperationMapping,

@@ -37,6 +37,7 @@ import {
     formatComment,
     generateEnumDefinition,
     generateInputMessageFromSchema,
+    generateGnosticOptions,
     getProtoTypeFromGraphQL,
     getRootTypeForOperation,
     isGraphQLListType,
@@ -44,6 +45,7 @@ import {
     SCALAR_TYPE_MAP,
 } from './proto-utils.js';
 import {camelCase, upperFirst} from "lodash-es";
+import {extractOpenApiMetadataFromOperation} from './openapi-preprocessor.js';
 
 export interface OperationToProtoOptions {
     serviceName?: string;
@@ -70,6 +72,7 @@ export class OperationToProtoVisitor {
     private includeComments: boolean;
     private markQueriesIdempotent: boolean;
     private usesWrapperTypes = false;
+    private usesGnosticOptions = false;
     private enumsUsed = new Set<string>();
     private fragments = new Map<string, FragmentDefinitionNode>();
     private multiDimensionalArraysToGenerate = new Map<string, { operationName: string; fieldPath: string; graphqlType: GraphQLType }>();
@@ -539,8 +542,26 @@ export class OperationToProtoVisitor {
                 rpcOptions.push('option idempotency_level = NO_SIDE_EFFECTS;');
             }
 
+            // Extract OpenAPI metadata from @openapi directive if present
+            const openApiMetadata = extractOpenApiMetadataFromOperation(document);
+            let gnosticOptions: string[] | undefined;
+            if (openApiMetadata) {
+                gnosticOptions = generateGnosticOptions(openApiMetadata);
+                if (gnosticOptions.length > 0) {
+                    this.usesGnosticOptions = true;
+                }
+            }
+
             // Use createRpcMethod and add proper indentation for service methods
-            const rpcMethod = createRpcMethod(methodName, requestType, returnType, this.includeComments, operationDescription, rpcOptions);
+            const rpcMethod = createRpcMethod(
+                methodName,
+                requestType,
+                returnType,
+                this.includeComments,
+                operationDescription,
+                rpcOptions,
+                gnosticOptions
+            );
             
             // Add 2-space indentation to each line for service method formatting
             return rpcMethod.split('\n').map(line => line ? `  ${line}` : line).join('\n');
@@ -1460,6 +1481,11 @@ export class OperationToProtoVisitor {
         // Add wrapper import if needed
         if (this.usesWrapperTypes) {
             imports.push('google/protobuf/wrappers.proto');
+        }
+
+        // Add gnostic OpenAPI import if needed
+        if (this.usesGnosticOptions) {
+            imports.push('gnostic/openapi/v3/annotations.proto');
         }
 
         if (this.goPackage) {

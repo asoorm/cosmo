@@ -1,6 +1,7 @@
 import { access, constants, lstat, mkdir, readFile, writeFile, readdir } from 'node:fs/promises';
 import {
     compileOperationsToProto,
+    enhanceSDLWithOpenApiDirective,
     OperationInfo,
     ProtoLock,
     validateGraphQLSDL,
@@ -159,9 +160,13 @@ async function generateProtoFromCollection({
     const validationResult = validateGraphQLSDL(schema);
     renderValidationResults(validationResult, schemaFile);
 
+    // Enhance SDL with @openapi directive definition to support OpenAPI metadata
+    spinner.text = 'Enhancing schema with OpenAPI directive support...';
+    const enhancedSchema = enhanceSDLWithOpenApiDirective(schema);
+
     // Generate proto from operations
     spinner.text = 'Generating proto from operations...';
-    const result = compileOperationsToProto(operations, schema, {
+    const result = compileOperationsToProto(operations, enhancedSchema, {
         serviceName,
         packageName,
         goPackage,

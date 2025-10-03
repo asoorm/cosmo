@@ -8,6 +8,7 @@ import { createPromiseClient, createRouterTransport } from '@connectrpc/connect'
 import { PlatformService } from '@wundergraph/cosmo-connect/dist/platform/v1/platform_connect';
 import { dirname } from 'pathe';
 import GenerateCommand from '../src/commands/grpc-service/commands/generate.js';
+import GenerateFromCollectionCommand from '../src/commands/grpc-service/commands/generate-from-collection.js';
 import GRPCCommands from '../src/commands/grpc-service/index.js';
 import { Client } from '../src/core/client/client.js';
 
@@ -287,5 +288,310 @@ describe('gRPC Generate Command', () => {
     expect(existsSync(join(tmpDir, 'mapping.json'))).toBe(false);
     expect(existsSync(join(tmpDir, 'service.proto'))).toBe(false);
     expect(existsSync(join(tmpDir, 'service.proto.lock.json'))).toBe(false);
+  });
+});
+
+describe('gRPC Generate From Collection Command', () => {
+  test('should generate proto from operations collection', async (testContext) => {
+    const client: Client = {
+      platform: createPromiseClient(PlatformService, mockPlatformTransport()),
+    };
+
+    const program = new Command();
+    program.addCommand(GenerateFromCollectionCommand({ client }));
+
+    const tmpDir = join(tmpdir(), `grpc-collection-test-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
+
+    // Create a collection directory with test operations
+    const collectionDir = join(tmpDir, 'operations');
+    mkdirSync(collectionDir, { recursive: true });
+
+    // Create test schema
+    const schemaContent = `
+      type Query {
+        employee(id: Int!): Employee
+        employees: [Employee]
+      }
+      
+      type Mutation {
+        updateEmployee(id: Int!, name: String!): Employee
+      }
+      
+      type Employee {
+        id: Int!
+        name: String!
+        isAvailable: Boolean!
+      }
+    `;
+    const schemaPath = join(tmpDir, 'schema.graphql');
+    writeFileSync(schemaPath, schemaContent);
+
+    // Create test operations
+    const queryOperation = `
+      query GetEmployee($id: Int!) {
+        employee(id: $id) {
+          id
+          name
+          isAvailable
+        }
+      }
+    `;
+    writeFileSync(join(collectionDir, 'GetEmployee.graphql'), queryOperation);
+
+    const mutationOperation = `
+      mutation UpdateEmployee($id: Int!, $name: String!) {
+        updateEmployee(id: $id, name: $name) {
+          id
+          name
+        }
+      }
+    `;
+    writeFileSync(join(collectionDir, 'UpdateEmployee.graphql'), mutationOperation);
+
+    testContext.onTestFinished(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    await program.parseAsync(
+      [
+        'generate-from-collection',
+        'testservice',
+        '-s',
+        schemaPath,
+        '-c',
+        collectionDir,
+        '-o',
+        tmpDir,
+      ],
+      {
+        from: 'user',
+      }
+    );
+
+    // Verify the output files exist
+    expect(existsSync(join(tmpDir, 'service.proto'))).toBe(true);
+    expect(existsSync(join(tmpDir, 'service.proto.lock.json'))).toBe(true);
+  });
+
+  test('should generate proto with idempotency annotations when flag is enabled', async (testContext) => {
+    const client: Client = {
+      platform: createPromiseClient(PlatformService, mockPlatformTransport()),
+    };
+
+    const program = new Command();
+    program.addCommand(GenerateFromCollectionCommand({ client }));
+
+    const tmpDir = join(tmpdir(), `grpc-collection-idempotent-test-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
+
+    // Create a collection directory with test operations
+    const collectionDir = join(tmpDir, 'operations');
+    mkdirSync(collectionDir, { recursive: true });
+
+    // Create test schema
+    const schemaContent = `
+      type Query {
+        employee(id: Int!): Employee
+        employees: [Employee]
+      }
+      
+      type Mutation {
+        updateEmployee(id: Int!, name: String!): Employee
+      }
+      
+      type Employee {
+        id: Int!
+        name: String!
+        isAvailable: Boolean!
+      }
+    `;
+    const schemaPath = join(tmpDir, 'schema.graphql');
+    writeFileSync(schemaPath, schemaContent);
+
+    // Create test operations
+    const queryOperation = `
+      query GetEmployee($id: Int!) {
+        employee(id: $id) {
+          id
+          name
+          isAvailable
+        }
+      }
+    `;
+    writeFileSync(join(collectionDir, 'GetEmployee.graphql'), queryOperation);
+
+    const mutationOperation = `
+      mutation UpdateEmployee($id: Int!, $name: String!) {
+        updateEmployee(id: $id, name: $name) {
+          id
+          name
+        }
+      }
+    `;
+    writeFileSync(join(collectionDir, 'UpdateEmployee.graphql'), mutationOperation);
+
+    testContext.onTestFinished(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    await program.parseAsync(
+      [
+        'generate-from-collection',
+        'testservice',
+        '-s',
+        schemaPath,
+        '-c',
+        collectionDir,
+        '-o',
+        tmpDir,
+        '--mark-queries-idempotent',
+      ],
+      {
+        from: 'user',
+      }
+    );
+
+    // Verify the output files exist
+    expect(existsSync(join(tmpDir, 'service.proto'))).toBe(true);
+    
+    // Read the generated proto file and verify idempotency annotations
+    const protoContent = require('fs').readFileSync(join(tmpDir, 'service.proto'), 'utf8');
+    
+    // Query should have idempotency annotation
+    expect(protoContent).toContain('rpc GetEmployee(GetEmployeeRequest) returns (GetEmployeeResponse) {');
+    expect(protoContent).toContain('option idempotency_level = NO_SIDE_EFFECTS;');
+    
+    // Mutation should NOT have idempotency annotation
+    expect(protoContent).toContain('rpc UpdateEmployee(UpdateEmployeeRequest) returns (UpdateEmployeeResponse) {}');
+    
+    // Count occurrences to ensure only queries get the annotation
+    const idempotencyMatches = protoContent.match(/option idempotency_level = NO_SIDE_EFFECTS;/g);
+    expect(idempotencyMatches).toHaveLength(1); // Only one query operation
+  });
+
+  test('should generate proto without idempotency annotations when flag is not provided', async (testContext) => {
+    const client: Client = {
+      platform: createPromiseClient(PlatformService, mockPlatformTransport()),
+    };
+
+    const program = new Command();
+    program.addCommand(GenerateFromCollectionCommand({ client }));
+
+    const tmpDir = join(tmpdir(), `grpc-collection-no-idempotent-test-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
+
+    // Create a collection directory with test operations
+    const collectionDir = join(tmpDir, 'operations');
+    mkdirSync(collectionDir, { recursive: true });
+
+    // Create test schema
+    const schemaContent = `
+      type Query {
+        employee(id: Int!): Employee
+      }
+      
+      type Employee {
+        id: Int!
+        name: String!
+      }
+    `;
+    const schemaPath = join(tmpDir, 'schema.graphql');
+    writeFileSync(schemaPath, schemaContent);
+
+    // Create test query operation
+    const queryOperation = `
+      query GetEmployee($id: Int!) {
+        employee(id: $id) {
+          id
+          name
+        }
+      }
+    `;
+    writeFileSync(join(collectionDir, 'GetEmployee.graphql'), queryOperation);
+
+    testContext.onTestFinished(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    await program.parseAsync(
+      [
+        'generate-from-collection',
+        'testservice',
+        '-s',
+        schemaPath,
+        '-c',
+        collectionDir,
+        '-o',
+        tmpDir,
+      ],
+      {
+        from: 'user',
+      }
+    );
+
+    // Verify the output files exist
+    expect(existsSync(join(tmpDir, 'service.proto'))).toBe(true);
+    
+    // Read the generated proto file and verify NO idempotency annotations
+    const protoContent = require('fs').readFileSync(join(tmpDir, 'service.proto'), 'utf8');
+    
+    // Should not contain any idempotency annotations
+    expect(protoContent).not.toContain('option idempotency_level = NO_SIDE_EFFECTS;');
+    
+    // Should contain simple RPC method without options
+    expect(protoContent).toContain('rpc GetEmployee(GetEmployeeRequest) returns (GetEmployeeResponse) {}');
+  });
+
+  test('should fail when collection directory is empty', async (testContext) => {
+    const client: Client = {
+      platform: createPromiseClient(PlatformService, mockPlatformTransport()),
+    };
+
+    const program = new Command();
+    program.addCommand(GenerateFromCollectionCommand({ client }));
+
+    const tmpDir = join(tmpdir(), `grpc-collection-empty-test-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
+
+    // Create empty collection directory
+    const collectionDir = join(tmpDir, 'operations');
+    mkdirSync(collectionDir, { recursive: true });
+
+    // Create test schema
+    const schemaContent = `
+      type Query {
+        employee(id: Int!): Employee
+      }
+      
+      type Employee {
+        id: Int!
+        name: String!
+      }
+    `;
+    const schemaPath = join(tmpDir, 'schema.graphql');
+    writeFileSync(schemaPath, schemaContent);
+
+    testContext.onTestFinished(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    await expect(
+      program.parseAsync(
+        [
+          'generate-from-collection',
+          'testservice',
+          '-s',
+          schemaPath,
+          '-c',
+          collectionDir,
+          '-o',
+          tmpDir,
+        ],
+        {
+          from: 'user',
+        }
+      )
+    ).rejects.toThrow('No GraphQL operation files found in the collection directory');
   });
 });

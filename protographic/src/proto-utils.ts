@@ -253,6 +253,7 @@ export function buildProtoHeader(packageName: string, imports: string[], options
  * @param includeComments - Whether to include comments in the output
  * @param description - Optional description for the method
  * @param options - Optional RPC options to include in the method definition
+ * @param gnosticOptions - Optional gnostic OpenAPI options for the method
  * @returns The RPC method definition with or without comment and options
  */
 export function createRpcMethod(
@@ -261,15 +262,18 @@ export function createRpcMethod(
     responseName: string,
     includeComments: boolean,
     description?: string | null,
-    options?: string[]
+    options?: string[],
+    gnosticOptions?: string[]
 ): string {
-    const hasOptions = options && options.length > 0;
+    // Combine regular options with gnostic options
+    const allOptions = [...(options || []), ...(gnosticOptions || [])];
+    const hasOptions = allOptions.length > 0;
     
     if (!includeComments || !description) {
         if (!hasOptions) {
             return `rpc ${methodName}(${requestName}) returns (${responseName}) {}`;
         } else {
-            const optionsStr = options.map(opt => `  ${opt}`).join('\n');
+            const optionsStr = allOptions.map(opt => `  ${opt}`).join('\n');
             return `rpc ${methodName}(${requestName}) returns (${responseName}) {\n${optionsStr}\n}`;
         }
     }
@@ -282,10 +286,81 @@ export function createRpcMethod(
         return [...commentLines, methodLine].join('\n');
     } else {
         const methodStart = `  rpc ${methodName}(${requestName}) returns (${responseName}) {`;
-        const optionsStr = options.map(opt => `    ${opt}`).join('\n');
+        const optionsStr = allOptions.map(opt => `    ${opt}`).join('\n');
         const methodEnd = '  }';
         return [...commentLines, methodStart, optionsStr, methodEnd].join('\n');
     }
+}
+
+/**
+ * Escape a string value for use in Protocol Buffer options
+ * Handles newlines, quotes, and other special characters
+ */
+function escapeProtoString(value: string): string {
+    return value
+        .replace(/\\/g, '\\\\')  // Escape backslashes first
+        .replace(/"/g, '\\"')     // Escape double quotes
+        .replace(/\n/g, '\\n')    // Escape newlines
+        .replace(/\r/g, '\\r')    // Escape carriage returns
+        .replace(/\t/g, '\\t');   // Escape tabs
+}
+
+/**
+ * Generate gnostic OpenAPI v3 options for an RPC method
+ * Combines all metadata into a single option statement
+ * These options are used by protoc-gen-connect-openapi to generate OpenAPI specifications
+ *
+ * @param metadata - OpenAPI metadata extracted from @openapi directive
+ * @returns Array with a single gnostic option string (or empty array if no metadata)
+ */
+export function generateGnosticOptions(metadata: {
+    operationId?: string;
+    summary?: string;
+    description?: string;
+    tags?: string[];
+    deprecated?: boolean;
+    externalDocs?: { description?: string; url: string };
+}): string[] {
+    const fields: string[] = [];
+    
+    if (metadata.operationId) {
+        fields.push(`operation_id: "${escapeProtoString(metadata.operationId)}"`);
+    }
+    
+    if (metadata.summary) {
+        fields.push(`summary: "${escapeProtoString(metadata.summary)}"`);
+    }
+    
+    if (metadata.description) {
+        fields.push(`description: "${escapeProtoString(metadata.description)}"`);
+    }
+    
+    if (metadata.tags && metadata.tags.length > 0) {
+        const tagsStr = metadata.tags.map(tag => `"${escapeProtoString(tag)}"`).join(', ');
+        fields.push(`tags: [${tagsStr}]`);
+    }
+    
+    if (metadata.deprecated) {
+        fields.push(`deprecated: true`);
+    }
+    
+    if (metadata.externalDocs) {
+        const docsFields: string[] = [];
+        if (metadata.externalDocs.description) {
+            docsFields.push(`description: "${escapeProtoString(metadata.externalDocs.description)}"`);
+        }
+        docsFields.push(`url: "${escapeProtoString(metadata.externalDocs.url)}"`);
+        fields.push(`external_docs: { ${docsFields.join(', ')} }`);
+    }
+    
+    // Only return an option if we have at least one field
+    if (fields.length === 0) {
+        return [];
+    }
+    
+    // Combine all fields into a single option statement
+    const optionContent = fields.join(', ');
+    return [`option (gnostic.openapi.v3.operation) = { ${optionContent} };`];
 }
 
 /**
