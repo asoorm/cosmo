@@ -52,6 +52,14 @@ func (f *HttpFlushWriter) Complete() {
 	if f.ctx.Err() != nil {
 		return
 	}
+	
+	f.sendCompleteEvent()
+	f.Close(resolve.SubscriptionCloseKindNormal)
+}
+
+// sendCompleteEvent sends the complete event without calling Close()
+// This is used internally to avoid recursion
+func (f *HttpFlushWriter) sendCompleteEvent() {
 	if f.sse {
 		_, _ = f.writer.Write([]byte("event: complete\ndata: \n\n"))
 	} else if f.multipart {
@@ -65,7 +73,39 @@ func (f *HttpFlushWriter) Complete() {
 
 	// Flush before closing the writer to ensure all data is sent
 	f.flusher.Flush()
+}
 
+// sendErrorEvent sends an SSE error event without calling Complete() or Close()
+// This is used internally to avoid recursion
+func (f *HttpFlushWriter) sendErrorEvent(errorPayload []byte) {
+	if f.sse {
+		// For SSE, send as "event: error" according to GraphQL over SSE spec
+		_, _ = f.writer.Write([]byte("event: error\ndata: "))
+		_, _ = f.writer.Write(errorPayload)
+		_, _ = f.writer.Write([]byte("\n\n"))
+		f.flusher.Flush()
+	} else if f.multipart {
+		// For multipart, wrap the error in the payload structure
+		wrapped, err := wrapMultipartMessage(errorPayload, true)
+		if err == nil {
+			prefix := GetWriterPrefix(false, true, true)
+			_, _ = f.writer.Write([]byte(prefix))
+			_, _ = f.writer.Write(wrapped)
+			_, _ = f.writer.Write([]byte("\r\n"))
+			f.flusher.Flush()
+		}
+	}
+}
+
+// SendError sends an SSE error event followed by a complete event and closes the connection
+// This is used for subscription initialization failures (like SubscriptionOnStart errors)
+func (f *HttpFlushWriter) SendError(errorPayload []byte) {
+	if f.ctx.Err() != nil {
+		return
+	}
+
+	f.sendErrorEvent(errorPayload)
+	f.sendCompleteEvent()
 	f.Close(resolve.SubscriptionCloseKindNormal)
 }
 
@@ -107,6 +147,27 @@ func (f *HttpFlushWriter) Heartbeat() error {
 func (f *HttpFlushWriter) Close(_ resolve.SubscriptionCloseKind) {
 	if f.ctx.Err() != nil {
 		return
+	}
+
+	// Flush any pending data in the buffer before closing
+	// This is critical for errors during subscription initialization
+	if f.buf.Len() > 0 {
+		resp := f.buf.Bytes()
+		f.buf.Reset() // Clear buffer to prevent recursive calls
+		
+		// Check if the buffered response contains GraphQL errors
+		// indicating a subscription initialization failure
+		if bytes.Contains(resp, []byte(`"errors"`)) {
+			// Send as error event (not next event)
+			f.sendErrorEvent(resp)
+			// Send complete event
+			f.sendCompleteEvent()
+		} else {
+			// Normal data, flush it
+			if err := f.Flush(); err != nil {
+				// Error flushing, ignore silently as we're closing anyway
+			}
+		}
 	}
 
 	f.cancel()

@@ -663,11 +663,18 @@ func (rw *websocketResponseWriter) Flush() error {
 
 		// Check if the result is an error
 		errorsResult := gjson.GetBytes(payload, "errors")
-		if errorsResult.Type == gjson.JSON {
+		hasErrors := errorsResult.Type == gjson.JSON
+		if hasErrors {
 			if rw.propagateErrors {
 				err = rw.protocol.WriteGraphQLErrors(rw.id, json.RawMessage(errorsResult.Raw), extensions)
 			} else {
 				err = rw.protocol.WriteGraphQLErrors(rw.id, json.RawMessage(`[{"message":"Unable to subscribe"}]`), extensions)
+			}
+			// After writing errors, send a complete message to properly terminate the subscription
+			// This is especially important for the subscriptions-transport-ws protocol (graphql-ws subprotocol)
+			// which expects a complete message after errors during subscription initialization
+			if err == nil {
+				err = rw.protocol.Complete(rw.id)
 			}
 		} else {
 			err = rw.protocol.WriteGraphQLData(rw.id, payload, extensions)
