@@ -1,22 +1,48 @@
 import ws from 'k6/ws';
 import { check } from 'k6';
+import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 /*
   This script was originally intended to simulate an extremely high load on websocket connections. It may also be useful as a base for new websocket scenarios.
 */
 
+// Number of unique UUIDs in the pool
+const triggers = 10;
+
+export function setup() {
+  const uuidPool = [];
+
+  for (let i = 0; i < triggers; i++) {
+    uuidPool.push(uuidv4());
+  }
+
+  console.log('Generated ' + triggers + ' UUIDs');
+
+  return { uuidPool };
+}
+
 export const options = {
   stages: [
-    { duration: '0s', target: 10000 },
-    { duration: '5m', target: 10000 },
+    { duration: '0s', target: 500 }, // Start immediately at 500 VUs
+    { duration: '2m', target: 1000 }, // Ramp up to 1000 over 2 minutes
+    { duration: '2m', target: 500 }, // Drop to 500 over 2 minutes
+    { duration: '2m', target: 1000 }, // Ramp back to 1000 over 2 minutes
+    { duration: '2m', target: 500 }, // Drop to 500 over 2 minutes
+    { duration: '2m', target: 1000 }, // Final ramp to 1000 over 2 minutes
   ],
 };
 
-export default function () {
+export default function ({ uuidPool }) {
+  // Select a random UUID from the pool
+  const id = uuidPool[Math.floor(Math.random() * uuidPool.length)];
+  const max = 120;
+  const intervalMilliseconds = 500;
+
   const url = 'ws://localhost:3002/graphql';
   const params = {
     headers: {
       'Sec-WebSocket-Protocol': 'graphql-transport-ws',
+      'X-User-Id': id,
     },
   };
 
@@ -33,27 +59,37 @@ export default function () {
     socket.on('message', function (message) {
       const data = JSON.parse(message);
 
-      console.log(message);
+      let recieved = 0;
 
       switch (data.type) {
         case 'connection_ack':
           // Connection acknowledged, start subscription
           socket.send(
             JSON.stringify({
-              id: '1',
+              id: id,
               type: 'subscribe',
               payload: {
-                query: 'subscription { countHob(max: 50000, intervalMilliseconds: 1) }',
+                query: `subscription { countHob(max: ${max}, intervalMilliseconds: ${intervalMilliseconds}) }`,
               },
             }),
           );
-          console.log('Subscription started');
+          console.log(`${id}: Subscription started`);
           break;
         case 'next':
-          console.log('Subscription next:', data.payload);
+          console.log(`${id}: Received data`);
+          recieved++;
+
+          if (recieved >= max - 10) {
+            socket.send(
+              JSON.stringify({
+                id: id,
+                type: 'complete',
+              }),
+            );
+          }
           break;
         case 'complete':
-          console.log('Subscription completed');
+          console.log(`${id}: Subscription completed`);
           break;
       }
     });
@@ -68,17 +104,6 @@ export default function () {
       }
     });
   });
-
-  // Cancel subscription after 20 seconds
-  setTimeout(() => {
-    socket.send(
-      JSON.stringify({
-        id: '1',
-        type: 'complete',
-      }),
-    );
-    socket.close();
-  }, 20000);
 
   check(res, {
     'WebSocket connection established': (r) => r && r.status === 101,
