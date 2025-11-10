@@ -9,6 +9,22 @@ datasources:
     jsonData:
       httpMethod: POST
       manageAlerts: true
+  - name: Pyroscope
+    type: pyroscope
+    url: http://pyroscope:4040
+    readOnly: false
+    editable: true
+    jsonData:
+      httpMethod: POST
+      manageAlerts: true
+  - name: Tempo
+    type: tempo
+    url: http://tempo:3200
+    readOnly: false
+    editable: true
+    jsonData:
+      httpMethod: POST
+      manageAlerts: true
   - name: ClickHouse
     type: grafana-clickhouse-datasource
     readOnly: false
