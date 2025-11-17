@@ -136,7 +136,7 @@ const OperationsPage: NextPageWithLayout = () => {
               const hasError = operation.totalErrorCount > 0;
 
               return (
-                <OperationsTableRow key={operation.hash} hasError={hasError}>
+                <OperationsTableRow key={`${operation.type}-${operation.name}-${operation.hash}`} hasError={hasError}>
                   <TableCell>{operation.name}</TableCell>
                   <TableCell>{operation.type}</TableCell>
                   <TableCell>
