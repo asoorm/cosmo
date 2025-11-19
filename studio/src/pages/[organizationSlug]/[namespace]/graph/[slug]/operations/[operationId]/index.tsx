@@ -7,6 +7,8 @@ import { NextPageWithLayout } from "@/lib/page";
 import { useCurrentOrganization } from "@/hooks/use-current-organization";
 import { useWorkspace } from "@/hooks/use-workspace";
 import Link from "next/link";
+import { ClientToolbar } from "@/components/operations/client-toolbar";
+import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
 
 const OperationDetailsPage: NextPageWithLayout = () => {
   const router = useRouter();
@@ -16,6 +18,8 @@ const OperationDetailsPage: NextPageWithLayout = () => {
   const {
     namespace: { name: namespace },
   } = useWorkspace();
+
+  const { range, dateRange } = useOperationClientsState();
 
   return (
     <GraphPageLayout
@@ -30,6 +34,9 @@ const OperationDetailsPage: NextPageWithLayout = () => {
         </Link>,
       ]}
     >
+    <div className="w-full space-y-4">
+      <ClientToolbar range={range} dateRange={dateRange} />
+    </div>
     </GraphPageLayout>
   );
 }
