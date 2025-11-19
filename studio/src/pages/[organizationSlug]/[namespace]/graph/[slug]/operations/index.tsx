@@ -32,12 +32,29 @@ import { HiOutlineCheck } from "react-icons/hi2";
 const OperationsTableRow = ({
   children,
   hasError,
+  operationHash,
+  operationName,
+  operationType,
 }: {
   children: ReactNode;
   hasError: boolean;
+  operationHash: string,
+  operationName: string,
+  operationType: string,
 }) => {
+  const router = useRouter();
+  const id = encodeURIComponent(`${operationType}-${operationName}-${operationHash}`);
+
+  const handleRowClick = () => {
+    const route = `${router.asPath.split("?")[0]}/${id}`;
+
+    router.push(route);
+  };
+
   return (
-    <TableRow className={cn("group cursor-pointer py-1 hover:bg-secondary/30", {
+    <TableRow
+      onClick={handleRowClick}
+      className={cn("group cursor-pointer py-1 hover:bg-secondary/30", {
       'bg-destructive/10': hasError,
     })}>
       {children}
@@ -136,7 +153,13 @@ const OperationsPage: NextPageWithLayout = () => {
               const hasError = operation.totalErrorCount > 0;
 
               return (
-                <OperationsTableRow key={`${operation.type}-${operation.name}-${operation.hash}`} hasError={hasError}>
+                <OperationsTableRow
+                  key={`${operation.type}-${operation.name}-${operation.hash}`}
+                  operationType={operation.type}
+                  operationName={operation.name}
+                  operationHash={operation.hash}
+                  hasError={hasError}
+                >
                   <TableCell>{operation.name}</TableCell>
                   <TableCell>{operation.type}</TableCell>
                   <TableCell>
