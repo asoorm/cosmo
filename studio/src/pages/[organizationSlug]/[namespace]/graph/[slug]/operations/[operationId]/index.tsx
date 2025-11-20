@@ -62,7 +62,7 @@ const OperationDetailsPage: NextPageWithLayout = () => {
     );
   }
 
-  if (!data || !data.metadata) {
+  if (!data || !data.metadata || !data.topClients) {
     return (
       <EmptyState
         icon={<ExclamationTriangleIcon />}
@@ -88,7 +88,6 @@ const OperationDetailsPage: NextPageWithLayout = () => {
       toolbar={<OperationsToolbar tab="metrics" />}
     >
       <div className="flex min-h-0 flex-1 grid-cols-2 flex-col gap-4 p-4 lg:grid lg:px-6">
-        {/* Left box - Metrics */}
         <div className="col-span-1 flex flex-col rounded-md border">
           <h3 className="border-b px-4 py-2 font-semibold tracking-tight">
             Operation
@@ -120,12 +119,21 @@ const OperationDetailsPage: NextPageWithLayout = () => {
           </div>
         </div>
 
-        {/* Right box - To be filled later */}
         <div className="col-span-1 flex flex-col rounded-md border">
           <h3 className="border-b px-4 py-2 font-semibold tracking-tight">
-            ...
+            Top clients
           </h3>
-          <div className="px-4 py-4">{/* Your future content here */}</div>
+          <div className="px-4 py-4">
+            <ul>
+              {data.topClients.map(({ name, version, count }, index) => (
+                <li key={`${name}-${version}`} className="mb-2">
+                  <div className="font-medium">
+                    {index + 1}. {name} {version} <em>{count}</em>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
     </GraphPageLayout>

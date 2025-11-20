@@ -2932,6 +2932,12 @@ message OperationDetailMetadata {
   string content = 3;
 }
 
+message OperationDetailTopClientNames {
+  string name = 1;
+  string version = 2;
+  int64 count = 3;
+}
+
 message GetOperationDetailMetricsPageRequest {
   string namespace = 1;
   string federatedGraphName = 2;
@@ -2943,6 +2949,7 @@ message GetOperationDetailMetricsPageRequest {
 message GetOperationDetailMetricsPageResponse {
   Response response = 1;
   OperationDetailMetadata metadata = 2;
+  repeated OperationDetailTopClientNames topClients = 3;
 }
 
 message OperationDetailClientPageItem {

@@ -1,7 +1,7 @@
 import { ClickHouseClient } from '../clickhouse/index.js';
 
 export class OperationsViewRepository {
-  constructor(private client: ClickHouseClient) {}
+  constructor(private client: ClickHouseClient) { }
 
   /**
    * Get operations page data
@@ -78,7 +78,7 @@ export class OperationsViewRepository {
         "OperationContent" as content,
         "OperationName" as name
       FROM
-        gql_metrics_operations
+        ${this.client.database}.gql_metrics_operations
       WHERE
         "OperationName" = '${operationName}'
         AND "OperationType" = '${operationType}'
@@ -101,6 +101,61 @@ export class OperationsViewRepository {
 
     return {
       metadata: result?.[0] || null,
+    };
+  }
+
+  public async getTopClientsForOperationByNameHashType({
+    organizationId,
+    graphId,
+    operationName,
+    operationHash,
+    operationType,
+  }: {
+    organizationId: string;
+    graphId: string;
+    operationName: string;
+    operationHash: string;
+    operationType: string;
+  }) {
+    const query = `
+      SELECT
+        "ClientName" as name,
+        "ClientVersion" as version,
+        SUM("TotalRequests") as count
+      FROM
+        ${this.client.database}.operation_request_metrics_5_30
+      WHERE
+        "OperationName" = '${operationName}'
+        AND "OperationType" = '${operationType}'
+        AND "OperationHash" = '${operationHash}'
+        AND "OrganizationID" = '${organizationId}'
+        AND "FederatedGraphID" = '${graphId}'
+      GROUP BY
+        "ClientName",
+        "ClientVersion"
+      ORDER BY
+        count DESC
+      LIMIT
+        5
+    `;
+
+    const result = await this.client.queryPromise<{
+      name: string;
+      version: string;
+      count: string;
+    }>(query, {
+      organizationId,
+      graphId,
+      operationName,
+      operationHash,
+      operationType,
+    });
+
+    return {
+      topClients: result.map(({ count, ...row }) => ({
+        ...row,
+        count: BigInt(count),
+      })),
     };
   }
 

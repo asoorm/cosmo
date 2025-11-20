@@ -22961,6 +22961,55 @@ export class OperationDetailMetadata extends Message<OperationDetailMetadata> {
 }
 
 /**
+ * @generated from message wg.cosmo.platform.v1.OperationDetailTopClientNames
+ */
+export class OperationDetailTopClientNames extends Message<OperationDetailTopClientNames> {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name = "";
+
+  /**
+   * @generated from field: string version = 2;
+   */
+  version = "";
+
+  /**
+   * @generated from field: int64 count = 3;
+   */
+  count = protoInt64.zero;
+
+  constructor(data?: PartialMessage<OperationDetailTopClientNames>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "wg.cosmo.platform.v1.OperationDetailTopClientNames";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "count", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OperationDetailTopClientNames {
+    return new OperationDetailTopClientNames().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): OperationDetailTopClientNames {
+    return new OperationDetailTopClientNames().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): OperationDetailTopClientNames {
+    return new OperationDetailTopClientNames().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: OperationDetailTopClientNames | PlainMessage<OperationDetailTopClientNames> | undefined, b: OperationDetailTopClientNames | PlainMessage<OperationDetailTopClientNames> | undefined): boolean {
+    return proto3.util.equals(OperationDetailTopClientNames, a, b);
+  }
+}
+
+/**
  * @generated from message wg.cosmo.platform.v1.GetOperationDetailMetricsPageRequest
  */
 export class GetOperationDetailMetricsPageRequest extends Message<GetOperationDetailMetricsPageRequest> {
@@ -23035,6 +23084,11 @@ export class GetOperationDetailMetricsPageResponse extends Message<GetOperationD
    */
   metadata?: OperationDetailMetadata;
 
+  /**
+   * @generated from field: repeated wg.cosmo.platform.v1.OperationDetailTopClientNames topClients = 3;
+   */
+  topClients: OperationDetailTopClientNames[] = [];
+
   constructor(data?: PartialMessage<GetOperationDetailMetricsPageResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -23045,6 +23099,7 @@ export class GetOperationDetailMetricsPageResponse extends Message<GetOperationD
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "response", kind: "message", T: Response },
     { no: 2, name: "metadata", kind: "message", T: OperationDetailMetadata },
+    { no: 3, name: "topClients", kind: "message", T: OperationDetailTopClientNames, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationDetailMetricsPageResponse {

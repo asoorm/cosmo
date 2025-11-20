@@ -24,8 +24,7 @@ export function getOperationDetailMetricsPage(
         response: {
           code: EnumStatusCode.ERR_ANALYTICS_DISABLED,
         },
-        clients: [],
-        count: 0,
+        topClients: [],
       };
     }
 
@@ -40,13 +39,19 @@ export function getOperationDetailMetricsPage(
           code: EnumStatusCode.ERR_NOT_FOUND,
           details: `Federated graph '${req.federatedGraphName}' not found`,
         },
-        clients: [],
-        count: 0,
+        topClients: [],
       };
     }
 
     const repo = new OperationsViewRepository(opts.chClient);
-    const view = await repo.getOperationMetadataByNameHashType({
+    const metadata = await repo.getOperationMetadataByNameHashType({
+      organizationId: authContext.organizationId,
+      graphId: graph.id,
+      operationName: req.operationName,
+      operationHash: req.operationHash,
+      operationType: req.operationType,
+    });
+    const topClients = await repo.getTopClientsForOperationByNameHashType({
       organizationId: authContext.organizationId,
       graphId: graph.id,
       operationName: req.operationName,
@@ -58,7 +63,8 @@ export function getOperationDetailMetricsPage(
       response: {
         code: EnumStatusCode.OK,
       },
-      ...view,
+      ...metadata,
+      ...topClients,
     };
   });
 }
