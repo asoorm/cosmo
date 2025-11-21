@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ClientsTable } from "@/components/operations/clients-table";
 import { OperationsToolbar } from "@/components/operations/operations-toolbar";
 import { GraphContext } from "@/components/layout/graph-layout";
-import { ClientToolbar } from "@/components/operations/client-toolbar";
+import { OperationDetailToolbar } from "@/components/operations/operation-detail-toolbar";
 import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
@@ -109,7 +109,7 @@ const OperationDetailsPage: NextPageWithLayout = () => {
       toolbar={<OperationsToolbar tab="clients" />}
     >
       <div className="w-full space-y-4">
-        <ClientToolbar range={range} dateRange={dateRange} />
+        <OperationDetailToolbar range={range} dateRange={dateRange} />
         <ClientsTable
           list={data.clients}
           noOfPages={Math.ceil(data.count / limit)}

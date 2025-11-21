@@ -11,6 +11,8 @@ import { NextPageWithLayout } from "@/lib/page";
 import { useCurrentOrganization } from "@/hooks/use-current-organization";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { OperationsToolbar } from "@/components/operations/operations-toolbar";
+import { OperationDetailToolbar } from "@/components/operations/operation-detail-toolbar";
+import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
@@ -29,6 +31,7 @@ const OperationDetailsPage: NextPageWithLayout = () => {
   const {
     namespace: { name: namespace },
   } = useWorkspace();
+  const { range, dateRange } = useOperationClientsState();
 
   const graphContext = useContext(GraphContext);
   const { data, isLoading, error, refetch } = useQuery(
@@ -87,52 +90,55 @@ const OperationDetailsPage: NextPageWithLayout = () => {
       ]}
       toolbar={<OperationsToolbar tab="metrics" />}
     >
-      <div className="flex min-h-0 flex-1 grid-cols-2 flex-col gap-4 p-4 lg:grid lg:px-6">
-        <div className="col-span-1 flex flex-col rounded-md border">
-          <h3 className="border-b px-4 py-2 font-semibold tracking-tight">
-            Operation
-          </h3>
-          <div className="px-4 py-4">
-            <dl className="space-y-4">
-              <div className="flex flex-col">
-                <dt className="text-sm text-muted-foreground">Name</dt>
-                <dd>{data?.metadata?.name}</dd>
-              </div>
-              <div className="flex flex-col">
-                <dt className="text-sm text-muted-foreground">Type</dt>
-                <dd>{data?.metadata?.type}</dd>
-              </div>
-              <div className="flex flex-col">
-                <dt className="text-sm text-muted-foreground">Content</dt>
-                <dd className="mt-2">
-                  <div className="rounded border">
-                    <CodeViewer
-                      code={data?.metadata?.content || ""}
-                      language="graphql"
-                      disableLinking
-                      className="scrollbar-custom max-h-96 overflow-auto"
-                    />
-                  </div>
-                </dd>
-              </div>
-            </dl>
+      <div className="w-full space-y-4">
+        <OperationDetailToolbar range={range} dateRange={dateRange} />
+        <div className="flex min-h-0 flex-1 grid-cols-2 flex-col gap-4 lg:grid">
+          <div className="col-span-1 flex flex-col rounded-md border">
+            <h3 className="border-b px-4 py-2 font-semibold tracking-tight">
+              Operation
+            </h3>
+            <div className="px-4 py-4">
+              <dl className="space-y-4">
+                <div className="flex flex-col">
+                  <dt className="text-sm text-muted-foreground">Name</dt>
+                  <dd>{data?.metadata?.name}</dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm text-muted-foreground">Type</dt>
+                  <dd>{data?.metadata?.type}</dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm text-muted-foreground">Content</dt>
+                  <dd className="mt-2">
+                    <div className="rounded border">
+                      <CodeViewer
+                        code={data?.metadata?.content || ""}
+                        language="graphql"
+                        disableLinking
+                        className="scrollbar-custom max-h-96 overflow-auto"
+                      />
+                    </div>
+                  </dd>
+                </div>
+              </dl>
+            </div>
           </div>
-        </div>
 
-        <div className="col-span-1 flex flex-col rounded-md border">
-          <h3 className="border-b px-4 py-2 font-semibold tracking-tight">
-            Top clients
-          </h3>
-          <div className="px-4 py-4">
-            <ul>
-              {data.topClients.map(({ name, version, count }, index) => (
-                <li key={`${name}-${version}`} className="mb-2">
-                  <div className="font-medium">
-                    {index + 1}. {name} {version} <em>{count}</em>
-                  </div>
-                </li>
-              ))}
-            </ul>
+          <div className="col-span-1 flex flex-col rounded-md border">
+            <h3 className="border-b px-4 py-2 font-semibold tracking-tight">
+              Top clients
+            </h3>
+            <div className="px-4 py-4">
+              <ul>
+                {data.topClients.map(({ name, version, count }, index) => (
+                  <li key={`${name}-${version}`} className="mb-2">
+                    <div className="font-medium">
+                      {index + 1}. {name} {version} <em>{count}</em>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </div>

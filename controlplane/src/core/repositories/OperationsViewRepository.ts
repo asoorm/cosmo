@@ -1,7 +1,7 @@
 import { ClickHouseClient } from '../clickhouse/index.js';
 
 export class OperationsViewRepository {
-  constructor(private client: ClickHouseClient) { }
+  constructor(private client: ClickHouseClient) {}
 
   /**
    * Get operations page data

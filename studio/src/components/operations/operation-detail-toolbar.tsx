@@ -9,7 +9,7 @@ import type {
 import { Spacer } from "../ui/spacer";
 import { useApplyParams } from "../analytics/use-apply-params";
 
-export const ClientToolbar = ({
+export const OperationDetailToolbar = ({
   range,
   dateRange,
 }: {
