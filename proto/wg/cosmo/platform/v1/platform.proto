@@ -2936,6 +2936,7 @@ message OperationDetailRequestMetrics {
   repeated OperationDetailRequestMetric requests = 1;
   int64 totalRequestCount = 2;
   int64 totalErrorCount = 3;
+  double errorPercentage = 4;
 }
 
 message OperationDetailMetadata {

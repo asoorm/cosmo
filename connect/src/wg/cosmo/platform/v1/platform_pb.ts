@@ -22979,6 +22979,11 @@ export class OperationDetailRequestMetrics extends Message<OperationDetailReques
    */
   totalErrorCount = protoInt64.zero;
 
+  /**
+   * @generated from field: double errorPercentage = 4;
+   */
+  errorPercentage = 0;
+
   constructor(data?: PartialMessage<OperationDetailRequestMetrics>) {
     super();
     proto3.util.initPartial(data, this);
@@ -22990,6 +22995,7 @@ export class OperationDetailRequestMetrics extends Message<OperationDetailReques
     { no: 1, name: "requests", kind: "message", T: OperationDetailRequestMetric, repeated: true },
     { no: 2, name: "totalRequestCount", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
     { no: 3, name: "totalErrorCount", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 4, name: "errorPercentage", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OperationDetailRequestMetrics {

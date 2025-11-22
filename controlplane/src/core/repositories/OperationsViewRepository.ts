@@ -283,13 +283,19 @@ export class OperationsViewRepository {
     `;
 
     const sumQuery = `
+      WITH
+        toDateTime('${start}') AS startDate,
+        toDateTime('${end}') AS endDate
       SELECT
         sum("TotalRequests") as totalRequestCount,
-        sum("TotalErrors") as totalErrorCount
+        sum("TotalErrors") as totalErrorCount,
+        if(totalErrorCount > 0, round(totalErrorCount / totalRequestCount * 100, 2), 0) errorPercentage
       FROM
         ${this.client.database}.operation_request_metrics_5_30
       WHERE
-        "OperationName" = '${operationName}'
+        "Timestamp" >= startDate
+        AND "Timestamp" <= endDate
+        AND "OperationName" = '${operationName}'
         AND "OperationType" = '${operationType}'
         AND "OperationHash" = '${operationHash}'
         AND "OrganizationID" = '${organizationId}'
@@ -306,6 +312,7 @@ export class OperationsViewRepository {
     const sumResultQueryPromise = this.client.queryPromise<{
       totalRequestCount: string;
       totalErrorCount: string;
+      errorPercentage: string;
     }>(sumQuery);
 
     const [result, sumResult] = await Promise.all([metricsResultQueryPromise, sumResultQueryPromise]);
@@ -318,12 +325,14 @@ export class OperationsViewRepository {
 
     const totalRequestCount = sumResult[0]?.totalRequestCount ? BigInt(sumResult[0]?.totalRequestCount) : 0n;
     const totalErrorCount = sumResult[0]?.totalErrorCount ? BigInt(sumResult[0]?.totalErrorCount) : 0n;
+    const errorPercentage = sumResult[0]?.errorPercentage ? Number(sumResult[0]?.errorPercentage) : 0;
 
     return {
       requestMetrics: {
         requests,
         totalRequestCount,
         totalErrorCount,
+        errorPercentage,
       },
     };
   }

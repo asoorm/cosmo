@@ -30,6 +30,7 @@ export function getOperationDetailMetricsPage(
           requests: [],
           totalRequestCount: 0n,
           totalErrorCount: 0n,
+          errorPercentage: 0,
         },
       };
     }
@@ -51,6 +52,7 @@ export function getOperationDetailMetricsPage(
           requests: [],
           totalRequestCount: 0n,
           totalErrorCount: 0n,
+          errorPercentage: 0,
         },
       };
     }

@@ -18,6 +18,7 @@ import {
 import { getInfoTip } from "@/components/analytics/metrics";
 import type { Range } from "@/components/date-picker-with-range";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { createFilterState } from "@/components/analytics/constructAnalyticsTableQueryState";
 import { OperationsToolbar } from "@/components/operations/operations-toolbar";
 import { OperationDetailToolbar } from "@/components/operations/operation-detail-toolbar";
 import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
@@ -26,6 +27,7 @@ import { RequestsChart } from "@/components/operations/requests-chart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader } from "@/components/ui/loader";
+import { formatPercentMetric } from "@/lib/format-metric";
 import {
   ChevronRightIcon,
   ExclamationTriangleIcon,
@@ -160,38 +162,67 @@ const OperationDetailsPage: NextPageWithLayout = () => {
             </div>
           </div>
           <Card className="bg-transparent">
-            <CardHeader className="flex flex-row items-start py-2">
-              <div className="flex-1">
-                <div className="flex space-x-2 text-sm">
-                  <Tooltip delayDuration={200}>
-                    <TooltipTrigger asChild>
-                      <h4 className="group text-sm font-medium">
-                        <Link
-                          href={{
-                            pathname: `${router.pathname}/clients`,
-                            query: {
-                              organizationSlug,
-                              namespace,
-                              slug: router.query.slug,
-                              range,
-                              dateRange: router.query.dateRange ?? undefined,
-                              ...router.query,
-                            },
-                          }}
-                          className="inline-flex rounded-md px-2 py-1 hover:bg-muted"
-                        >
-                          Top {data.topClients.length}{" "}
-                          {data.topClients.length === 1 ? "Client" : "Clients"}
-                          <ChevronRightIcon className="h4 ml-1 w-4 transition-all group-hover:ml-2" />
-                        </Link>
-                      </h4>
-                    </TooltipTrigger>
-                    <TooltipContent>View all clients</TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="border-b pb-2">
+            <CardContent className="border-b py-4">
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <h4 className="group text-sm font-medium">
+                    <Link
+                      href={{
+                        pathname:
+                          "/[organizationSlug]/[namespace]/graph/[slug]/analytics/traces",
+                        query: {
+                          organizationSlug,
+                          namespace,
+                          slug: router.query.slug,
+                          range,
+                          dateRange: router.query.dateRange ?? undefined,
+                          filterState: createFilterState({
+                            operationName: name,
+                            operationHash: hash,
+                          }),
+                          ...router.query,
+                        },
+                      }}
+                      className="inline-flex rounded-md px-2 py-1 hover:bg-muted"
+                    >
+                      Error percentage
+                      <ChevronRightIcon className="h4 ml-1 w-4 transition-all group-hover:ml-2" />
+                    </Link>
+                  </h4>
+                </TooltipTrigger>
+                <TooltipContent>
+                  View traces for{" "}
+                  {data.requestMetrics?.totalErrorCount.toString()} errors
+                </TooltipContent>
+              </Tooltip>
+              <p className="px-2 pb-4 text-xl font-semibold">
+                {formatPercentMetric(data.requestMetrics?.errorPercentage || 0)}
+              </p>
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <h4 className="group pb-2 text-sm font-medium">
+                    <Link
+                      href={{
+                        pathname: `${router.pathname}/clients`,
+                        query: {
+                          organizationSlug,
+                          namespace,
+                          slug: router.query.slug,
+                          range,
+                          dateRange: router.query.dateRange ?? undefined,
+                          ...router.query,
+                        },
+                      }}
+                      className="inline-flex rounded-md px-2 py-1 hover:bg-muted"
+                    >
+                      Top {data.topClients.length}{" "}
+                      {data.topClients.length === 1 ? "Client" : "Clients"}
+                      <ChevronRightIcon className="h4 ml-1 w-4 transition-all group-hover:ml-2" />
+                    </Link>
+                  </h4>
+                </TooltipTrigger>
+                <TooltipContent>View all clients</TooltipContent>
+              </Tooltip>
               <ClientsChart data={data?.topClients || []} />
             </CardContent>
           </Card>

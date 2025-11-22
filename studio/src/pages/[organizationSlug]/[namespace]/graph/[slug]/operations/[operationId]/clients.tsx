@@ -121,7 +121,7 @@ const OperationDetailsPage: NextPageWithLayout = () => {
 
 OperationDetailsPage.getLayout = (page) =>
   getGraphLayout(page, {
-    title: "Operation clients",
+    title: "Operation Clients",
   });
 
 export default OperationDetailsPage;
