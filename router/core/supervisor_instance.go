@@ -268,6 +268,7 @@ func optionsFromResources(logger *zap.Logger, config *config.Config) []Option {
 		WithClientHeader(config.ClientHeader),
 		WithCacheWarmupConfig(&config.CacheWarmup),
 		WithMCP(config.MCP),
+		WithConnectRPC(config.ConnectRPC),
 		WithPlugins(config.Plugins),
 		WithDemoMode(config.DemoMode),
 	}
