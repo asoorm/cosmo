@@ -5,6 +5,15 @@
 
 version: "1"
 
+authentication:
+  jwt:
+    jwks:
+      - secret: "fkczyomvdprgvtmvkuhvprxuggkbgwld"
+        symmetric_algorithm: "HS256"
+        header_key_id: "default"
+    header_name: "Authorization"
+    header_value_prefix: "Bearer"
+
 events:
   providers:
     nats:
