@@ -199,36 +199,35 @@ export class OperationsViewRepository {
         toDateTime('${start}') AS startDate,
         toDateTime('${end}') AS endDate
       SELECT
-        "Timestamp" AS timestamp,
-        "OperationHash" AS hash,
-        "TotalRequests" AS totalRequests,
-        "TotalErrors" AS totalErrors,
+        sum("TotalRequests") AS totalRequests,
+        sum("TotalErrors") AS totalErrors,
         "ClientName" AS clientName,
         "ClientVersion" AS clientVersion,
         COUNT(*) OVER() as count
       FROM
         ${this.client.database}.operation_request_metrics_5_30
       WHERE
-        timestamp >= startDate AND "Timestamp" <= endDate
+        "Timestamp" >= startDate AND "Timestamp" <= endDate
         AND "OperationName" = '${operationName}'
         AND "OperationType" = '${operationType}'
         AND "OperationHash" = '${operationHash}'
         AND "OrganizationID" = '${organizationId}'
         AND "FederatedGraphID" = '${graphId}'
+      GROUP BY
+        "ClientName",
+        "ClientVersion"
       ORDER BY
-        timestamp DESC
+        totalRequests DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
 
     const result = await this.client.queryPromise<{
-      timestamp: string;
-      hash: string;
       totalRequests: string;
       totalErrors: string;
       clientName: string;
       clientVersion: string;
       count: number;
-    }>(query, { organizationId, graphId, limit, offset });
+    }>(query);
 
     return {
       count: Number(result?.[0]?.count ?? 0),

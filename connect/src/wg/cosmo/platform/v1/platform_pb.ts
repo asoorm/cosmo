@@ -23246,32 +23246,22 @@ export class GetOperationDetailMetricsPageResponse extends Message<GetOperationD
  */
 export class OperationDetailClientPageItem extends Message<OperationDetailClientPageItem> {
   /**
-   * @generated from field: string timestamp = 1;
-   */
-  timestamp = "";
-
-  /**
-   * @generated from field: string hash = 2;
-   */
-  hash = "";
-
-  /**
-   * @generated from field: int64 totalRequests = 3;
+   * @generated from field: int64 totalRequests = 1;
    */
   totalRequests = protoInt64.zero;
 
   /**
-   * @generated from field: int64 totalErrors = 4;
+   * @generated from field: int64 totalErrors = 2;
    */
   totalErrors = protoInt64.zero;
 
   /**
-   * @generated from field: string clientName = 5;
+   * @generated from field: string clientName = 3;
    */
   clientName = "";
 
   /**
-   * @generated from field: string clientVersion = 6;
+   * @generated from field: string clientVersion = 4;
    */
   clientVersion = "";
 
@@ -23283,12 +23273,10 @@ export class OperationDetailClientPageItem extends Message<OperationDetailClient
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "wg.cosmo.platform.v1.OperationDetailClientPageItem";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "timestamp", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "hash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 3, name: "totalRequests", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
-    { no: 4, name: "totalErrors", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
-    { no: 5, name: "clientName", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 6, name: "clientVersion", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 1, name: "totalRequests", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 2, name: "totalErrors", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 3, name: "clientName", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "clientVersion", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OperationDetailClientPageItem {

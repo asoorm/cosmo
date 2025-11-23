@@ -2969,12 +2969,10 @@ message GetOperationDetailMetricsPageResponse {
 }
 
 message OperationDetailClientPageItem {
-  string timestamp = 1;
-  string hash = 2;
-  int64 totalRequests = 3;
-  int64 totalErrors = 4;
-  string clientName = 5;
-  string clientVersion = 6;
+  int64 totalRequests = 1;
+  int64 totalErrors = 2;
+  string clientName = 3;
+  string clientVersion = 4;
 }
 
 message GetOperationDetailClientPageRequest {
