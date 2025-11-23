@@ -1,0 +1,7 @@
+{
+  "name": "MiscellaneousFact",
+  "type": "query",
+  "operation": "query MiscellaneousFact {\n  topSecretFederationFacts {\n    factType\n    ... on MiscellaneousFact {\n      title\n      description\n    }\n  }\n}",
+  "variables": {},
+  "requiresAuth": true
+}

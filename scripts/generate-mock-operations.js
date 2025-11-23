@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { stdin, stdout } from 'node:process';
 import { createInterface } from 'node:readline';
+import { generateDemoJWT } from './jwt-utils.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -89,6 +90,7 @@ function generateRandomQuery() {
   }
 }`,
         variables: { id: Math.floor(Math.random() * 100) + 1 },
+        requiresAuth: false,
       };
 
     case 1:
@@ -101,6 +103,7 @@ function generateRandomQuery() {
   }
 }`,
         variables: {},
+        requiresAuth: false,
       };
 
     case 2:
@@ -113,6 +116,7 @@ function generateRandomQuery() {
   }
 }`,
         variables: {},
+        requiresAuth: false,
       };
 
     case 3:
@@ -127,6 +131,7 @@ function generateRandomQuery() {
         variables: {
           team: randomChoice(['ENGINEERING', 'MARKETING', 'OPERATIONS']),
         },
+        requiresAuth: false,
       };
 
     case 4:
@@ -139,6 +144,7 @@ function generateRandomQuery() {
   }
 }`,
         variables: {},
+        requiresAuth: false,
       };
 
     case 5:
@@ -162,6 +168,7 @@ function generateRandomQuery() {
   }
 }`,
         variables: { criteria },
+        requiresAuth: false,
       };
 
     case 6:
@@ -181,6 +188,7 @@ function generateRandomQuery() {
   }
 }`,
         variables: hasCriteria ? { criteria: criteriaValue } : {},
+        requiresAuth: false,
       };
 
     case 7:
@@ -193,9 +201,11 @@ function generateRandomQuery() {
   }
 }`,
         variables: {},
+        requiresAuth: false,
       };
 
     case 8:
+      // Authenticated operation: requires read:fact or read:all scopes
       return {
         type: 'query',
         name: `GetTopSecretFacts_${id}`,
@@ -206,6 +216,7 @@ function generateRandomQuery() {
   }
 }`,
         variables: {},
+        requiresAuth: true,
       };
 
     case 9:
@@ -221,6 +232,7 @@ function generateRandomQuery() {
           numOfA: Math.floor(Math.random() * 10) + 1,
           numOfB: Math.floor(Math.random() * 10) + 1,
         },
+        requiresAuth: false,
       };
 
     default:
@@ -248,9 +260,11 @@ function generateRandomMutation() {
           id: Math.floor(Math.random() * 100) + 1,
           tag: `tag-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         },
+        requiresAuth: false,
       };
 
     case 1:
+      // Authenticated operation: requires write:fact or write:all scopes
       return {
         type: 'mutation',
         name: `AddFact_${id}`,
@@ -267,6 +281,7 @@ function generateRandomMutation() {
             factType: randomChoice(['DIRECTIVE', 'ENTITY', 'MISCELLANEOUS']),
           },
         },
+        requiresAuth: true,
       };
 
     case 2:
@@ -284,6 +299,7 @@ function generateRandomMutation() {
           employeeID: Math.floor(Math.random() * 100) + 1,
           isAvailable: Math.random() > 0.5,
         },
+        requiresAuth: false,
       };
 
     case 3:
@@ -302,6 +318,7 @@ function generateRandomMutation() {
           employeeID: Math.floor(Math.random() * 100) + 1,
           mood: randomChoice(['HAPPY', 'SAD']),
         },
+        requiresAuth: false,
       };
 
     case 4:
@@ -320,6 +337,7 @@ function generateRandomMutation() {
             email: `email-${Date.now()}-${id}@example.com`,
           },
         },
+        requiresAuth: false,
       };
 
     case 5:
@@ -338,6 +356,7 @@ function generateRandomMutation() {
             email: `email-${Date.now()}-${id}@example.com`,
           },
         },
+        requiresAuth: false,
       };
 
     default:
@@ -388,8 +407,8 @@ async function checkExistingOperations() {
   return { shouldRegenerate: true, existingCount: 0 };
 }
 
-async function loadExistingOperations() {
-  const outputDir = join(__dirname, 'mock-operations');
+async function loadExistingOperations(directory = 'mock-operations') {
+  const outputDir = join(__dirname, directory);
   const files = await readdir(outputDir);
   const jsonFiles = files.filter((f) => f.endsWith('.json')).sort();
 
@@ -421,6 +440,7 @@ async function generateOperationFiles(count) {
       variables: op.variables,
       clientName: randomClientName(),
       clientVersion: randomVersion(),
+      requiresAuth: op.requiresAuth || false,
     };
 
     await writeFile(filepath, JSON.stringify(operationData, null, 2));
@@ -430,11 +450,32 @@ async function generateOperationFiles(count) {
   return operations;
 }
 
-async function executeOperations(endpoint, token, operations, repeat = 1) {
+async function executeOperations({
+  endpoint,
+  token,
+  operations,
+  repeat = 1,
+  demoMode = false,
+  failRate = 0,
+  repeatDelay = null,
+  variableRequestCount = null,
+}) {
+  // Generate JWT token for demo mode (injected into all requests)
+  const jwtToken = demoMode ? generateDemoJWT() : null;
+  if (demoMode) {
+    console.log('Generated JWT token for authenticated demo operations\n');
+  }
+
+  // Calculate round-robin period for failure simulation
+  const failurePeriod = failRate > 0 ? Math.round(1 / failRate) : 0;
+
   for (let iteration = 0; iteration < repeat; iteration++) {
     if (repeat > 1) {
       console.log(`\n=== Iteration ${iteration + 1}/${repeat} ===`);
     }
+
+    // Round-robin: skip auth header every N iterations based on failRate
+    const shouldSkipAuth = failurePeriod > 0 && iteration % failurePeriod !== 0;
 
     const batches = [];
     for (let i = 0; i < operations.length; i += 15) {
@@ -448,34 +489,60 @@ async function executeOperations(endpoint, token, operations, repeat = 1) {
       console.log(`\nBatch ${batchIndex + 1}/${batches.length} (${batch.length} operations)`);
 
       const promises = batch.map(async ({ filepath, data }) => {
-        try {
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-WG-Token': token,
-              'GraphQL-Client-Name': data.clientName,
-              'GraphQL-Client-Version': data.clientVersion,
-            },
-            body: JSON.stringify({
-              query: data.operation,
-              variables: data.variables,
-            }),
-          });
+        // Determine how many times to fire this operation
+        const requestCount = variableRequestCount ? Math.floor(Math.random() * variableRequestCount) + 1 : 1;
 
-          const result = await response.json();
-          const status = response.ok ? '✓' : '✗';
-          console.log(`  ${status} ${data.name} (${data.clientName}@${data.clientVersion})`);
+        const requests = [];
+        for (let reqIndex = 0; reqIndex < requestCount; reqIndex++) {
+          requests.push(
+            (async () => {
+              try {
+                // Use provided client info or randomize if missing
+                const clientName = data.clientName || randomClientName();
+                const clientVersion = data.clientVersion || randomVersion();
 
-          if (!response.ok || result.errors) {
-            console.log(`    Error: ${JSON.stringify(result.errors || result)}`);
-          }
+                const headers = {
+                  'Content-Type': 'application/json',
+                  'X-WG-Token': token,
+                  'GraphQL-Client-Name': clientName,
+                  'GraphQL-Client-Version': clientVersion,
+                };
 
-          return { filepath, success: response.ok && !result.errors, result };
-        } catch (error) {
-          console.log(`  ✗ ${data.name} - ${error.message}`);
-          return { filepath, success: false, error: error.message };
+                // Inject Authorization header for demo mode with failure simulation
+                // Only skip auth if: operation requires auth AND round-robin says to skip
+                if (demoMode && jwtToken && !(data.requiresAuth && shouldSkipAuth)) {
+                  headers['Authorization'] = `Bearer ${jwtToken}`;
+                }
+
+                const response = await fetch(endpoint, {
+                  method: 'POST',
+                  headers,
+                  body: JSON.stringify({
+                    query: data.operation,
+                    variables: data.variables,
+                  }),
+                });
+
+                const result = await response.json();
+                const status = response.ok ? '✓' : '✗';
+                const countSuffix = requestCount > 1 ? ` [${reqIndex + 1}/${requestCount}]` : '';
+                console.log(`  ${status} ${data.name}${countSuffix} (${clientName}@${clientVersion})`);
+
+                if (!response.ok || result.errors) {
+                  console.log(`    Error: ${JSON.stringify(result.errors || result)}`);
+                }
+
+                return { filepath, success: response.ok && !result.errors, result };
+              } catch (error) {
+                const countSuffix = requestCount > 1 ? ` [${reqIndex + 1}/${requestCount}]` : '';
+                console.log(`  ✗ ${data.name}${countSuffix} - ${error.message}`);
+                return { filepath, success: false, error: error.message };
+              }
+            })(),
+          );
         }
+
+        return Promise.all(requests);
       });
 
       await Promise.allSettled(promises);
@@ -488,9 +555,15 @@ async function executeOperations(endpoint, token, operations, repeat = 1) {
     }
 
     if (iteration < repeat - 1) {
-      const delay = randomDelay();
-      console.log(`\nWaiting ${(delay / 1000).toFixed(1)}s before next iteration...`);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      const delay = repeatDelay !== null ? repeatDelay * 1000 : randomDelay();
+      const totalSeconds = Math.ceil(delay / 1000);
+
+      // Countdown timer
+      for (let remaining = totalSeconds; remaining > 0; remaining--) {
+        process.stdout.write(`\rNext iteration in ${remaining}s...`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      process.stdout.write('\r\x1b[K'); // Clear line
     }
   }
 }
@@ -511,13 +584,27 @@ async function main() {
         short: 't',
         default: defaultToken,
       },
-      count: {
+      amount: {
         type: 'string',
-        short: 'c',
+        short: 'a',
       },
       repeat: {
         type: 'string',
         short: 'r',
+      },
+      demo: {
+        type: 'boolean',
+        short: 'd',
+      },
+      'fail-rate': {
+        type: 'string',
+        short: 'f',
+      },
+      'repeat-delay': {
+        type: 'string',
+      },
+      'variable-request-count': {
+        type: 'string',
       },
     },
   });
@@ -532,37 +619,58 @@ async function main() {
 
   if (!values.endpoint || !values.token) {
     console.error(
-      'Usage: ./generate-mock-operations.js --endpoint <url> --token <token> [--count <number>] [--repeat <number>]',
+      'Usage: ./generate-mock-operations.js --endpoint <url> --token <token> [--amount <number>] [--repeat <number>] [--demo] [--fail-rate <0.0-1.0>] [--repeat-delay <seconds>] [--variable-request-count <max>]',
     );
-    console.error('Example: ./generate-mock-operations.js -e http://localhost:3002/graphql -t mytoken -c 50');
-    console.error('  --count is required only when generating new operations');
-    console.error('  --repeat N will replay operations N times (only when replaying existing)');
+    console.error('Example: ./generate-mock-operations.js -e http://localhost:3002/graphql -t mytoken -a 50');
+    console.error('  --amount is required only when generating new operations');
+    console.error('  --repeat N will replay operations N times (only when replaying existing or demo ops)');
+    console.error('  --demo uses predefined demo operations from scripts/demo-mock-operations/ with authentication');
+    console.error(
+      '  --fail-rate X simulates auth failures using round-robin pattern (0.0-1.0, only with --demo and --repeat)',
+    );
+    console.error('  --repeat-delay X fixed delay in seconds between iterations (only with --repeat)');
+    console.error('  --variable-request-count X fires each operation 1-X times per batch');
     process.exit(1);
   }
 
-  const checkResult = await checkExistingOperations();
+  // Validate and parse fail-rate
+  let failRate = 0;
+  if (values['fail-rate']) {
+    failRate = parseFloat(values['fail-rate']);
+    if (isNaN(failRate) || failRate < 0 || failRate > 1) {
+      console.error('Error: fail-rate must be a float between 0.0 and 1.0');
+      process.exit(1);
+    }
+  }
+
+  // Validate and parse repeat-delay
+  let repeatDelay = null;
+  if (values['repeat-delay']) {
+    repeatDelay = parseFloat(values['repeat-delay']);
+    if (isNaN(repeatDelay) || repeatDelay < 0) {
+      console.error('Error: repeat-delay must be a non-negative number (seconds)');
+      process.exit(1);
+    }
+  }
+
+  // Validate variable-request-count
+  let variableRequestCount = null;
+  if (values['variable-request-count']) {
+    variableRequestCount = parseFloat(values['variable-request-count']);
+    if (isNaN(variableRequestCount) || !Number.isInteger(variableRequestCount) || variableRequestCount < 1) {
+      console.error('Error: variable-request-count must be a positive integer');
+      process.exit(1);
+    }
+  }
+
   let operations;
   let repeat = 1;
 
-  if (checkResult.shouldRegenerate) {
-    if (!values.count) {
-      console.error('Error: --count is required when generating new operations');
-      process.exit(1);
-    }
-
-    const count = parseInt(values.count, 10);
-    if (isNaN(count) || count <= 0) {
-      console.error('Error: count must be a positive number');
-      process.exit(1);
-    }
-
-    console.log(`Generating ${count} randomized operations...`);
-    operations = await generateOperationFiles(count);
-    console.log(`✓ Generated ${operations.length} operation files in scripts/mock-operations/\n`);
-  } else {
-    console.log(`Loading ${checkResult.existingCount} existing operations...`);
-    operations = await loadExistingOperations();
-    console.log(`✓ Loaded ${operations.length} operation files\n`);
+  // Demo mode: load predefined operations from demo-mock-operations/
+  if (values.demo) {
+    console.log('Demo mode: Loading predefined operations from scripts/demo-mock-operations/...');
+    operations = await loadExistingOperations('demo-mock-operations');
+    console.log(`✓ Loaded ${operations.length} demo operation files\n`);
 
     if (values.repeat) {
       repeat = parseInt(values.repeat, 10);
@@ -571,10 +679,51 @@ async function main() {
         process.exit(1);
       }
     }
+  } else {
+    // Regular mode: check for existing operations or generate new ones
+    const checkResult = await checkExistingOperations();
+
+    if (checkResult.shouldRegenerate) {
+      if (!values.amount) {
+        console.error('Error: --amount is required when generating new operations');
+        process.exit(1);
+      }
+
+      const amount = parseInt(values.amount, 10);
+      if (isNaN(amount) || amount <= 0) {
+        console.error('Error: amount must be a positive number');
+        process.exit(1);
+      }
+
+      console.log(`Generating ${amount} randomized operations...`);
+      operations = await generateOperationFiles(amount);
+      console.log(`✓ Generated ${operations.length} operation files in scripts/mock-operations/\n`);
+    } else {
+      console.log(`Loading ${checkResult.existingCount} existing operations...`);
+      operations = await loadExistingOperations();
+      console.log(`✓ Loaded ${operations.length} operation files\n`);
+
+      if (values.repeat) {
+        repeat = parseInt(values.repeat, 10);
+        if (isNaN(repeat) || repeat <= 0) {
+          console.error('Error: repeat must be a positive number');
+          process.exit(1);
+        }
+      }
+    }
   }
 
   console.log(`Executing operations against ${values.endpoint}...`);
-  await executeOperations(values.endpoint, values.token, operations, repeat);
+  await executeOperations({
+    endpoint: values.endpoint,
+    token: values.token,
+    operations,
+    repeat,
+    demoMode: values.demo || false,
+    failRate,
+    repeatDelay,
+    variableRequestCount,
+  });
 
   console.log('\n✓ Done!');
 }

@@ -69,8 +69,12 @@ delete-demo:
 
 generate-mock-ops:
 	@node --env-file=./router/.env ./scripts/generate-mock-operations.js \
-		--count=$(or $(count),50) \
-		$(if $(repeat),--repeat=$(repeat),)
+		--amount=$(or $(amount),50) \
+		$(if $(repeat),--repeat=$(repeat),) \
+		$(if $(demo),--demo,) \
+		$(if $(failRate),--fail-rate=$(failRate),) \
+		$(if $(repeatDelay),--repeat-delay=$(repeatDelay),) \
+		$(if $(variableRequestCount),--variable-request-count=$(variableRequestCount),)
 
 dev-setup: prerequisites
 	pnpm install

@@ -160,11 +160,29 @@ If you want to develop and have some mock data ready, you can use provided scrip
 make generate-mock-ops
 
 # Generate custom number of operations
-make generate-mock-ops count=100
+make generate-mock-ops amount=100
 
 # Generate operations with repeat
-make generate-mock-ops count=100 repeat=3
+make generate-mock-ops amount=100 repeat=3
 ```
+
+#### Demo Operations with Authentication
+
+Predefined demo operations in `scripts/demo-mock-operations/` test both authenticated fields (with `@requiresScopes` / `@authenticated` directives) and regular public operations.
+
+```shell
+# Execute predefined demo operations with authentication
+make generate-mock-ops demo=true
+
+# Simulate authentication failures for operations with requiresAuth, waits 5 minutes (300s) between batches
+# and fires of random amount of requests per batch
+make generate-mock-ops demo=true repeat=3 repeatDelay=300 failRate=0.5 variableRequestCount=12
+```
+
+**Requirements:**
+- Router must be running with JWT authentication configured (see `router/demo.config.yaml`)
+- `controlplane/.env` must contain `AUTH_JWT_SECRET`
+- Script automatically generates JWT tokens with all required scopes and injects `Authorization` header for all requests
 
 ### Docker Compose
 

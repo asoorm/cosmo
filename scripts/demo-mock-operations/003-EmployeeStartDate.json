@@ -1,0 +1,9 @@
+{
+  "name": "EmployeeStartDate",
+  "type": "query",
+  "operation": "query EmployeeStartDate($id: Int!) {\n  employee(id: $id) {\n    id\n    tag\n    startDate\n    currentMood\n  }\n}",
+  "variables": {
+    "id": 1
+  },
+  "requiresAuth": true
+}

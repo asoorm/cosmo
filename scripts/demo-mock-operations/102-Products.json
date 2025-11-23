@@ -1,0 +1,7 @@
+{
+  "name": "Products",
+  "type": "query",
+  "operation": "query Products {\n  products {\n    ... on Consultancy {\n      upc\n      name\n    }\n    ... on Cosmo {\n      upc\n      name\n      repositoryURL\n    }\n  }\n}",
+  "variables": {},
+  "requiresAuth": false
+}
