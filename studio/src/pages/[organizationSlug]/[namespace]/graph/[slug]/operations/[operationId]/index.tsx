@@ -24,6 +24,7 @@ import { DetailCard } from "@/components/operations/detail-card";
 import { LatencyCard } from "@/components/operations/latency-card";
 import { RequestsCard } from "@/components/operations/requests-card";
 import { ErrorPercentageCard } from "@/components/operations/error-percentage-card";
+import { useOperationClientFilters } from "@/components/operations/use-operation-client-filters";
 
 const OperationDetailsPage: NextPageWithLayout = () => {
   const router = useRouter();
@@ -58,6 +59,11 @@ const OperationDetailsPage: NextPageWithLayout = () => {
     {
       placeholderData: (prev) => prev,
     },
+  );
+
+  const { filters, columnFilters, resetFilters } = useOperationClientFilters(
+    data?.topClients || [],
+    data?.topErrorClients,
   );
 
   if (isLoading) return <Loader fullscreen />;
@@ -103,7 +109,13 @@ const OperationDetailsPage: NextPageWithLayout = () => {
       toolbar={<OperationsToolbar tab="metrics" />}
     >
       <div className="w-full space-y-4">
-        <OperationDetailToolbar range={range} dateRange={dateRange} />
+        <OperationDetailToolbar
+          range={range}
+          dateRange={dateRange}
+          filters={filters}
+          selectedFilters={columnFilters}
+          onResetFilters={resetFilters}
+        />
         <div className="flex min-h-0 flex-1 grid-cols-2 flex-col gap-4 lg:grid">
           <DetailCard metadata={data.metadata} />
           <ErrorPercentageCard

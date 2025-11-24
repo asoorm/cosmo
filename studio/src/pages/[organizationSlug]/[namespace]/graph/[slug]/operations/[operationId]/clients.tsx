@@ -14,6 +14,7 @@ import { OperationsToolbar } from "@/components/operations/operations-toolbar";
 import { GraphContext } from "@/components/layout/graph-layout";
 import { OperationDetailToolbar } from "@/components/operations/operation-detail-toolbar";
 import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
+import { useOperationClientFilters } from "@/components/operations/use-operation-client-filters";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
@@ -54,15 +55,24 @@ const OperationClientsPage: NextPageWithLayout = () => {
       range: router.query.dateRange ? undefined : range,
       dateRange: router.query.dateRange
         ? {
-            start: formatISO(dateRange.start),
-            end: formatISO(dateRange.end),
-          }
+          start: formatISO(dateRange.start),
+          end: formatISO(dateRange.end),
+        }
         : undefined,
     },
     {
       placeholderData: (prev) => prev,
     },
   );
+
+  // Convert clients to format expected by filter hook
+  const clientsForFilters = (data?.clients || []).map((client) => ({
+    name: client.clientName,
+    version: client.clientVersion,
+  })) as any[];
+
+  const { filters, columnFilters, resetFilters } =
+    useOperationClientFilters(clientsForFilters);
 
   if (isLoading) return <Loader fullscreen />;
 
@@ -107,7 +117,13 @@ const OperationClientsPage: NextPageWithLayout = () => {
       toolbar={<OperationsToolbar tab="clients" />}
     >
       <div className="w-full space-y-4">
-        <OperationDetailToolbar range={range} dateRange={dateRange} />
+        <OperationDetailToolbar
+          range={range}
+          dateRange={dateRange}
+          filters={filters}
+          selectedFilters={columnFilters}
+          onResetFilters={resetFilters}
+        />
         <ClientsTable
           list={data.clients}
           noOfPages={Math.ceil(data.count / limit)}

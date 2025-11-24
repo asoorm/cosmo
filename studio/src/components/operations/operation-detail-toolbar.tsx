@@ -8,13 +8,25 @@ import type {
 } from "../date-picker-with-range";
 import { Spacer } from "../ui/spacer";
 import { useApplyParams } from "../analytics/use-apply-params";
+import {
+  AnalyticsFilters,
+  AnalyticsSelectedFilters,
+  AnalyticsFilter,
+} from "../analytics/filters";
+import { ColumnFiltersState } from "@tanstack/react-table";
 
 export const OperationDetailToolbar = ({
   range,
   dateRange,
+  filters = [],
+  selectedFilters = [],
+  onResetFilters,
 }: {
   range?: Range;
   dateRange: DateRange;
+  filters?: AnalyticsFilter[];
+  selectedFilters?: ColumnFiltersState;
+  onResetFilters?: () => void;
 }) => {
   const tracingRetention = useFeatureLimit("tracing-retention", 7);
   const applyNewParams = useApplyParams();
@@ -50,8 +62,16 @@ export const OperationDetailToolbar = ({
             onChange={onDateRangeChange}
             calendarDaysLimit={tracingRetention}
           />
+          <AnalyticsFilters filters={filters} />
         </div>
         <Spacer />
+      </div>
+      <div className="flex flex-row flex-wrap items-start gap-y-2">
+        <AnalyticsSelectedFilters
+          filters={filters}
+          selectedFilters={selectedFilters}
+          onReset={onResetFilters}
+        />
       </div>
     </div>
   );
