@@ -94,13 +94,7 @@ export class OperationsViewRepository {
       type: string;
       name: string;
       content: string;
-    }>(query, {
-      organizationId,
-      graphId,
-      operationName,
-      operationHash,
-      operationType,
-    });
+    }>(query);
 
     return {
       metadata: result?.[0] || null,
