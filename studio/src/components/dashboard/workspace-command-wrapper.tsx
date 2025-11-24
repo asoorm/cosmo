@@ -122,9 +122,8 @@ export function WorkspaceCommandWrapper({
                   No namespace, graph or subgraph matches your criteria.
                 </div>
               ) : filteredGraphs.map((wns, index) => (
-                <>
                     <GraphCommandGroup
-                      key={`namespace-${index}`}
+                      key={wns.id}
                       isFiltering={isFiltering}
                       namespace={wns}
                       namespaceIndex={index}
@@ -135,7 +134,6 @@ export function WorkspaceCommandWrapper({
                         close();
                       }}
                     />
-                </>
               ))}
             </>
           ) : children}
