@@ -64,13 +64,13 @@ const OperationsTableRow = ({
 
 const OperationsStatusTableCell = ({ hasError }: { hasError: boolean }) => {
   return (
-    <div className="flex items-center space-x-2">
+    <TableCell className="flex items-center space-x-2">
       {hasError ? (
         <ExclamationTriangleIcon className="h-5 w-5 mt-2 text-destructive" />
       ) : (
         <HiOutlineCheck className="h-5 w-5 mt-2" />
       )}
-    </div>
+    </TableCell>
   );
 };
 
