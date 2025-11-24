@@ -100,7 +100,7 @@ const BarList = React.forwardRef<HTMLDivElement, BarListProps>((props, ref) => {
                     {item.name}
                   </Link>
                 ) : (
-                  <p className="truncate">{item.name}</p>
+                  <div className="truncate">{item.name}</div>
                 )}
               </div>
             </div>
