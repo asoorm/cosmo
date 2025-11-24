@@ -85,7 +85,16 @@ export function getOperationDetailMetricsPage(
       range,
       dateRange,
     });
-    const requests = await repo.getRequestsForOperationByNameHashType({
+    const requestMetrics = await repo.getRequestsForOperationByNameHashType({
+      organizationId: authContext.organizationId,
+      graphId: graph.id,
+      operationName: req.operationName,
+      operationHash: req.operationHash,
+      operationType: req.operationType,
+      range,
+      dateRange,
+    });
+    const latencyMetrics = await repo.getLatencyForOperationByNameHashType({
       organizationId: authContext.organizationId,
       graphId: graph.id,
       operationName: req.operationName,
@@ -101,7 +110,8 @@ export function getOperationDetailMetricsPage(
       },
       ...metadata,
       ...topClients,
-      ...requests,
+      ...requestMetrics,
+      ...latencyMetrics,
     };
   });
 }

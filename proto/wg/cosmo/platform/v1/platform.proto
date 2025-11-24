@@ -2932,11 +2932,21 @@ message OperationDetailRequestMetric {
   int64 errors = 3;
 }
 
+message OperationDetailLatencyMetric {
+  string timestamp = 1;
+  double minDuration = 2;
+  double maxDuration = 3;
+}
+
 message OperationDetailRequestMetrics {
   repeated OperationDetailRequestMetric requests = 1;
   int64 totalRequestCount = 2;
   int64 totalErrorCount = 3;
   double errorPercentage = 4;
+}
+
+message OperationDetailLatencyMetrics {
+  repeated OperationDetailLatencyMetric requests = 1;
 }
 
 message OperationDetailMetadata {
@@ -2966,6 +2976,7 @@ message GetOperationDetailMetricsPageResponse {
   OperationDetailMetadata metadata = 2;
   repeated OperationDetailTopClientNames topClients = 3;
   OperationDetailRequestMetrics requestMetrics = 4;
+  OperationDetailLatencyMetrics latencyMetrics = 5;
 }
 
 message OperationDetailClientPageItem {

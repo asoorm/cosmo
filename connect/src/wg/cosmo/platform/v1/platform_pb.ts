@@ -22961,6 +22961,55 @@ export class OperationDetailRequestMetric extends Message<OperationDetailRequest
 }
 
 /**
+ * @generated from message wg.cosmo.platform.v1.OperationDetailLatencyMetric
+ */
+export class OperationDetailLatencyMetric extends Message<OperationDetailLatencyMetric> {
+  /**
+   * @generated from field: string timestamp = 1;
+   */
+  timestamp = "";
+
+  /**
+   * @generated from field: double minDuration = 2;
+   */
+  minDuration = 0;
+
+  /**
+   * @generated from field: double maxDuration = 3;
+   */
+  maxDuration = 0;
+
+  constructor(data?: PartialMessage<OperationDetailLatencyMetric>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "wg.cosmo.platform.v1.OperationDetailLatencyMetric";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "timestamp", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "minDuration", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+    { no: 3, name: "maxDuration", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OperationDetailLatencyMetric {
+    return new OperationDetailLatencyMetric().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): OperationDetailLatencyMetric {
+    return new OperationDetailLatencyMetric().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): OperationDetailLatencyMetric {
+    return new OperationDetailLatencyMetric().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: OperationDetailLatencyMetric | PlainMessage<OperationDetailLatencyMetric> | undefined, b: OperationDetailLatencyMetric | PlainMessage<OperationDetailLatencyMetric> | undefined): boolean {
+    return proto3.util.equals(OperationDetailLatencyMetric, a, b);
+  }
+}
+
+/**
  * @generated from message wg.cosmo.platform.v1.OperationDetailRequestMetrics
  */
 export class OperationDetailRequestMetrics extends Message<OperationDetailRequestMetrics> {
@@ -23012,6 +23061,43 @@ export class OperationDetailRequestMetrics extends Message<OperationDetailReques
 
   static equals(a: OperationDetailRequestMetrics | PlainMessage<OperationDetailRequestMetrics> | undefined, b: OperationDetailRequestMetrics | PlainMessage<OperationDetailRequestMetrics> | undefined): boolean {
     return proto3.util.equals(OperationDetailRequestMetrics, a, b);
+  }
+}
+
+/**
+ * @generated from message wg.cosmo.platform.v1.OperationDetailLatencyMetrics
+ */
+export class OperationDetailLatencyMetrics extends Message<OperationDetailLatencyMetrics> {
+  /**
+   * @generated from field: repeated wg.cosmo.platform.v1.OperationDetailLatencyMetric requests = 1;
+   */
+  requests: OperationDetailLatencyMetric[] = [];
+
+  constructor(data?: PartialMessage<OperationDetailLatencyMetrics>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "wg.cosmo.platform.v1.OperationDetailLatencyMetrics";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "requests", kind: "message", T: OperationDetailLatencyMetric, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OperationDetailLatencyMetrics {
+    return new OperationDetailLatencyMetrics().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): OperationDetailLatencyMetrics {
+    return new OperationDetailLatencyMetrics().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): OperationDetailLatencyMetrics {
+    return new OperationDetailLatencyMetrics().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: OperationDetailLatencyMetrics | PlainMessage<OperationDetailLatencyMetrics> | undefined, b: OperationDetailLatencyMetrics | PlainMessage<OperationDetailLatencyMetrics> | undefined): boolean {
+    return proto3.util.equals(OperationDetailLatencyMetrics, a, b);
   }
 }
 
@@ -23210,6 +23296,11 @@ export class GetOperationDetailMetricsPageResponse extends Message<GetOperationD
    */
   requestMetrics?: OperationDetailRequestMetrics;
 
+  /**
+   * @generated from field: wg.cosmo.platform.v1.OperationDetailLatencyMetrics latencyMetrics = 5;
+   */
+  latencyMetrics?: OperationDetailLatencyMetrics;
+
   constructor(data?: PartialMessage<GetOperationDetailMetricsPageResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -23222,6 +23313,7 @@ export class GetOperationDetailMetricsPageResponse extends Message<GetOperationD
     { no: 2, name: "metadata", kind: "message", T: OperationDetailMetadata },
     { no: 3, name: "topClients", kind: "message", T: OperationDetailTopClientNames, repeated: true },
     { no: 4, name: "requestMetrics", kind: "message", T: OperationDetailRequestMetrics },
+    { no: 5, name: "latencyMetrics", kind: "message", T: OperationDetailLatencyMetrics },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationDetailMetricsPageResponse {

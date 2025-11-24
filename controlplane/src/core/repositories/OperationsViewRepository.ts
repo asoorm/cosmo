@@ -336,6 +336,61 @@ export class OperationsViewRepository {
     };
   }
 
+  public async getLatencyForOperationByNameHashType({
+    organizationId,
+    graphId,
+    operationName,
+    operationHash,
+    operationType,
+    range,
+    dateRange,
+  }: {
+    organizationId: string;
+    graphId: string;
+    operationName: string;
+    operationHash: string;
+    operationType: string;
+    range?: number;
+    dateRange?: DateRange<string>;
+  }) {
+    const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
+
+    const query = `
+      WITH
+        toDateTime('${start}') AS startDate,
+        toDateTime('${end}') AS endDate
+      SELECT
+        toStartOfInterval(startDate + toIntervalMinute(n.number * 5), INTERVAL 5 MINUTE) as timestamp,
+        round(min(oplm."MinDuration"), 2) as minDuration,
+        round(max(oplm."MaxDuration"), 2) as maxDuration
+      FROM
+        numbers(toUInt32((toUnixTimestamp(endDate) - toUnixTimestamp(startDate)) / 300)) AS n
+      LEFT JOIN ${this.client.database}.operation_latency_metrics_5_30 AS oplm
+        ON toStartOfInterval(oplm."Timestamp", INTERVAL 5 MINUTE) = timestamp
+        AND oplm."Timestamp" >= startDate
+        AND oplm."Timestamp" <= endDate
+        AND oplm."OperationName" = '${operationName}'
+        AND oplm."OperationType" = '${operationType}'
+        AND oplm."OperationHash" = '${operationHash}'
+        AND oplm."OrganizationID" = '${organizationId}'
+        AND oplm."FederatedGraphID" = '${graphId}'
+      GROUP BY timestamp
+      ORDER BY timestamp ASC
+    `;
+
+    const result = await this.client.queryPromise<{
+      timestamp: string;
+      minDuration: number;
+      maxDuration: number;
+    }>(query);
+
+    return {
+      latencyMetrics: {
+        requests: result,
+      },
+    };
+  }
+
   private static normalizeDateRange(
     dateRange?: DateRange<string>,
     range?: number,

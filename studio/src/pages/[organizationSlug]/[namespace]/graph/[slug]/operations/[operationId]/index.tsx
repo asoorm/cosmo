@@ -23,6 +23,7 @@ import { OperationsToolbar } from "@/components/operations/operations-toolbar";
 import { OperationDetailToolbar } from "@/components/operations/operation-detail-toolbar";
 import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
 import { ClientsChart } from "@/components/operations/clients-chart";
+import { LatencyChart } from "@/components/operations/latency-chart";
 import { RequestsChart } from "@/components/operations/requests-chart";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,7 +43,7 @@ const formatRequestMetricsTooltip = ({
   sum,
   range,
 }: {
-  sum?: bigint;
+  sum?: bigint | number;
   range?: Range;
 }) => {
   if (sum === undefined) {
@@ -243,6 +244,26 @@ const OperationDetailsPage: NextPageWithLayout = () => {
           <CardContent className="h-48 border-b pb-2">
             <RequestsChart
               data={data.requestMetrics?.requests || []}
+              syncId={syncId}
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="bg-transparent">
+          <CardHeader>
+            <div className="flex space-x-2">
+              <CardTitle>Latency over time</CardTitle>
+              <InfoTooltip>
+                {formatRequestMetricsTooltip({
+                  sum: data.requestMetrics?.totalRequestCount,
+                  range,
+                })}
+              </InfoTooltip>
+            </div>
+          </CardHeader>
+          <CardContent className="h-48 border-b pb-2">
+            <LatencyChart
+              data={data.latencyMetrics?.requests || []}
               syncId={syncId}
             />
           </CardContent>
