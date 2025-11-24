@@ -3,76 +3,18 @@ import {
   GraphPageLayout,
   getGraphLayout,
 } from "@/components/layout/graph-layout";
-import { OperationPageItem } from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
 import { EnumStatusCode } from "@wundergraph/cosmo-connect/dist/common/common_pb";
 import { getOperationsPage } from "@wundergraph/cosmo-connect/dist/platform/v1/platform-PlatformService_connectquery";
-import { formatDateTime } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { Pagination } from "@/components/ui/pagination";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  TableWrapper,
-} from "@/components/ui/table";
 import { GraphContext } from "@/components/layout/graph-layout";
+import { OperationsTable } from "@/components/operations/operations-table";
 import { NextPageWithLayout } from "@/lib/page";
-import { cn } from "@/lib/utils";
 import { useQuery } from "@connectrpc/connect-query";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/router";
 import { useContext } from "react";
-import type { ReactNode } from "react";
-import { HiOutlineCheck } from "react-icons/hi2";
-
-const OperationsTableRow = ({
-  children,
-  hasError,
-  operationHash,
-  operationName,
-  operationType,
-}: {
-  children: ReactNode;
-  hasError: boolean;
-  operationHash: string,
-  operationName: string,
-  operationType: string,
-}) => {
-  const router = useRouter();
-  const id = encodeURIComponent(`${operationType}-${operationName}-${operationHash}`);
-
-  const handleRowClick = () => {
-    const route = `${router.asPath.split("?")[0]}/${id}`;
-
-    router.push(route);
-  };
-
-  return (
-    <TableRow
-      onClick={handleRowClick}
-      className={cn("group cursor-pointer py-1 hover:bg-secondary/30", {
-      'bg-destructive/10': hasError,
-    })}>
-      {children}
-    </TableRow>
-  );
-};
-
-const OperationsStatusTableCell = ({ hasError }: { hasError: boolean }) => {
-  return (
-    <TableCell className="flex items-center space-x-2">
-      {hasError ? (
-        <ExclamationTriangleIcon className="h-5 w-5 mt-2 text-destructive" />
-      ) : (
-        <HiOutlineCheck className="h-5 w-5 mt-2" />
-      )}
-    </TableCell>
-  );
-};
 
 const OperationsPage: NextPageWithLayout = () => {
   const router = useRouter();
@@ -137,42 +79,7 @@ const OperationsPage: NextPageWithLayout = () => {
 
   return (
     <div className="flex h-full flex-col gap-y-3">
-      <TableWrapper>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Last Called</TableHead>
-              <TableHead>Requests</TableHead>
-              <TableHead>Health</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.operations.map((operation: OperationPageItem) =>
-              (
-                <OperationsTableRow
-                  key={`${operation.type}-${operation.name}-${operation.hash}`}
-                  operationType={operation.type}
-                  operationName={operation.name}
-                  operationHash={operation.hash}
-                  hasError={operation.hasErrors}
-                >
-                  <TableCell>{operation.name}</TableCell>
-                  <TableCell>{operation.type}</TableCell>
-                  <TableCell>
-                    {formatDateTime(new Date(operation.timestamp))}
-                  </TableCell>
-                  <TableCell>
-                    {operation.totalRequestCount.toString()}
-                  </TableCell>
-                  <OperationsStatusTableCell hasError={operation.hasErrors} />
-                </OperationsTableRow>
-              ))
-            }
-          </TableBody>
-        </Table>
-      </TableWrapper>
+      <OperationsTable operations={data.operations} />
       <Pagination limit={limit} noOfPages={noOfPages} pageNumber={pageNumber} />
     </div>
   );
