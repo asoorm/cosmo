@@ -23306,6 +23306,11 @@ export class GetOperationDetailMetricsPageResponse extends Message<GetOperationD
    */
   latencyMetrics?: OperationDetailLatencyMetrics;
 
+  /**
+   * @generated from field: repeated wg.cosmo.platform.v1.OperationClient allClients = 7;
+   */
+  allClients: OperationClient[] = [];
+
   constructor(data?: PartialMessage<GetOperationDetailMetricsPageResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -23320,6 +23325,7 @@ export class GetOperationDetailMetricsPageResponse extends Message<GetOperationD
     { no: 4, name: "topErrorClients", kind: "message", T: OperationDetailTopClientItem, repeated: true },
     { no: 5, name: "requestMetrics", kind: "message", T: OperationDetailRequestMetrics },
     { no: 6, name: "latencyMetrics", kind: "message", T: OperationDetailLatencyMetrics },
+    { no: 7, name: "allClients", kind: "message", T: OperationClient, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationDetailMetricsPageResponse {
@@ -23494,7 +23500,12 @@ export class GetOperationDetailClientPageResponse extends Message<GetOperationDe
   clients: OperationDetailClientPageItem[] = [];
 
   /**
-   * @generated from field: int32 count = 3;
+   * @generated from field: repeated wg.cosmo.platform.v1.OperationClient allClients = 3;
+   */
+  allClients: OperationClient[] = [];
+
+  /**
+   * @generated from field: int32 count = 4;
    */
   count = 0;
 
@@ -23508,7 +23519,8 @@ export class GetOperationDetailClientPageResponse extends Message<GetOperationDe
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "response", kind: "message", T: Response },
     { no: 2, name: "clients", kind: "message", T: OperationDetailClientPageItem, repeated: true },
-    { no: 3, name: "count", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 3, name: "allClients", kind: "message", T: OperationClient, repeated: true },
+    { no: 4, name: "count", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationDetailClientPageResponse {
@@ -23525,6 +23537,49 @@ export class GetOperationDetailClientPageResponse extends Message<GetOperationDe
 
   static equals(a: GetOperationDetailClientPageResponse | PlainMessage<GetOperationDetailClientPageResponse> | undefined, b: GetOperationDetailClientPageResponse | PlainMessage<GetOperationDetailClientPageResponse> | undefined): boolean {
     return proto3.util.equals(GetOperationDetailClientPageResponse, a, b);
+  }
+}
+
+/**
+ * @generated from message wg.cosmo.platform.v1.OperationClient
+ */
+export class OperationClient extends Message<OperationClient> {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name = "";
+
+  /**
+   * @generated from field: string version = 2;
+   */
+  version = "";
+
+  constructor(data?: PartialMessage<OperationClient>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "wg.cosmo.platform.v1.OperationClient";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OperationClient {
+    return new OperationClient().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): OperationClient {
+    return new OperationClient().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): OperationClient {
+    return new OperationClient().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: OperationClient | PlainMessage<OperationClient> | undefined, b: OperationClient | PlainMessage<OperationClient> | undefined): boolean {
+    return proto3.util.equals(OperationClient, a, b);
   }
 }
 

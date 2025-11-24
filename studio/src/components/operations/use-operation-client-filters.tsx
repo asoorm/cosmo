@@ -2,13 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { ColumnFiltersState } from "@tanstack/react-table";
 import { AnalyticsFilter } from "@/components/analytics/filters";
 import { AnalyticsViewFilterOperator } from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
-import type { OperationDetailTopClientItem } from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
+import type { OperationClient } from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
 import { useRouter } from "next/router";
 import { useApplyParams } from "@/components/analytics/use-apply-params";
 
 export const useOperationClientFilters = (
-  topClients: OperationDetailTopClientItem[],
-  topErrorClients?: OperationDetailTopClientItem[],
+  allClients: OperationClient[],
 ) => {
   const router = useRouter();
   const applyNewParams = useApplyParams();
@@ -32,12 +31,7 @@ export const useOperationClientFilters = (
     const clientNames = new Set<string>();
     const clientVersions = new Set<string>();
 
-    topClients.forEach((client) => {
-      clientNames.add(client.name);
-      clientVersions.add(client.version);
-    });
-
-    topErrorClients?.forEach((client) => {
+    allClients.forEach((client) => {
       clientNames.add(client.name);
       clientVersions.add(client.version);
     });
@@ -112,7 +106,7 @@ export const useOperationClientFilters = (
     }
 
     return result;
-  }, [topClients, topErrorClients, columnFilters, applyNewParams]);
+  }, [allClients, columnFilters, applyNewParams]);
 
   const resetFilters = () => {
     setColumnFilters([]);

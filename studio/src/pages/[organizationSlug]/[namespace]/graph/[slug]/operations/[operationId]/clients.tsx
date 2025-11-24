@@ -65,14 +65,8 @@ const OperationClientsPage: NextPageWithLayout = () => {
     },
   );
 
-  // Convert clients to format expected by filter hook
-  const clientsForFilters = (data?.clients || []).map((client) => ({
-    name: client.clientName,
-    version: client.clientVersion,
-  })) as any[];
-
   const { filters, columnFilters, resetFilters } =
-    useOperationClientFilters(clientsForFilters);
+    useOperationClientFilters(data?.allClients || []);
 
   if (isLoading) return <Loader fullscreen />;
 

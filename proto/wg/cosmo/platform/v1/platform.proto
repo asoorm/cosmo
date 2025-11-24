@@ -2978,6 +2978,7 @@ message GetOperationDetailMetricsPageResponse {
   repeated OperationDetailTopClientItem topErrorClients = 4;
   OperationDetailRequestMetrics requestMetrics = 5;
   OperationDetailLatencyMetrics latencyMetrics = 6;
+  repeated OperationClient allClients = 7;
 }
 
 message OperationDetailClientPageItem {
@@ -3002,7 +3003,13 @@ message GetOperationDetailClientPageRequest {
 message GetOperationDetailClientPageResponse {
   Response response = 1;
   repeated OperationDetailClientPageItem clients = 2;
-  int32 count = 3;
+  repeated OperationClient allClients = 3;
+  int32 count = 4;
+}
+
+message OperationClient {
+  string name = 1;
+  string version = 2;
 }
 
 message GetClientsFromAnalyticsRequest {

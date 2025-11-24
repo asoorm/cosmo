@@ -36,6 +36,7 @@ export function getOperationDetailMetricsPage(
         latencyMetrics: {
           requests: [],
         },
+        allClients: [],
       };
     }
 
@@ -62,6 +63,7 @@ export function getOperationDetailMetricsPage(
         latencyMetrics: {
           requests: [],
         },
+        allClients: [],
       };
     }
 
@@ -77,40 +79,51 @@ export function getOperationDetailMetricsPage(
     });
 
     const repo = new OperationsViewRepository(opts.chClient);
-    const metadata = await repo.getOperationMetadataByNameHashType({
-      organizationId: authContext.organizationId,
-      graphId: graph.id,
-      operationName: req.operationName,
-      operationHash: req.operationHash,
-      operationType: req.operationType,
-    });
-    const topClients = await repo.getTopClientsForOperationByNameHashType({
-      organizationId: authContext.organizationId,
-      graphId: graph.id,
-      operationName: req.operationName,
-      operationHash: req.operationHash,
-      operationType: req.operationType,
-      range,
-      dateRange,
-    });
-    const requestMetrics = await repo.getRequestsForOperationByNameHashType({
-      organizationId: authContext.organizationId,
-      graphId: graph.id,
-      operationName: req.operationName,
-      operationHash: req.operationHash,
-      operationType: req.operationType,
-      range,
-      dateRange,
-    });
-    const latencyMetrics = await repo.getLatencyForOperationByNameHashType({
-      organizationId: authContext.organizationId,
-      graphId: graph.id,
-      operationName: req.operationName,
-      operationHash: req.operationHash,
-      operationType: req.operationType,
-      range,
-      dateRange,
-    });
+    const [metadata, topClients, requestMetrics, latencyMetrics, allClients] = await Promise.all([
+      repo.getOperationMetadataByNameHashType({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        operationName: req.operationName,
+        operationHash: req.operationHash,
+        operationType: req.operationType,
+      }),
+      repo.getTopClientsForOperationByNameHashType({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        operationName: req.operationName,
+        operationHash: req.operationHash,
+        operationType: req.operationType,
+        range,
+        dateRange,
+      }),
+      repo.getRequestsForOperationByNameHashType({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        operationName: req.operationName,
+        operationHash: req.operationHash,
+        operationType: req.operationType,
+        range,
+        dateRange,
+      }),
+      repo.getLatencyForOperationByNameHashType({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        operationName: req.operationName,
+        operationHash: req.operationHash,
+        operationType: req.operationType,
+        range,
+        dateRange,
+      }),
+      repo.getAllClientsWithVersionsForOperationByNameHashType({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        operationName: req.operationName,
+        operationHash: req.operationHash,
+        operationType: req.operationType,
+        range,
+        dateRange,
+      }),
+    ]);
 
     return {
       response: {
@@ -120,6 +133,7 @@ export function getOperationDetailMetricsPage(
       ...topClients,
       ...requestMetrics,
       ...latencyMetrics,
+      ...allClients,
     };
   });
 }

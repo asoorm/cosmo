@@ -26,6 +26,7 @@ export function getOperationDetailClientPage(
           code: EnumStatusCode.ERR_ANALYTICS_DISABLED,
         },
         clients: [],
+        allClients: [],
         count: 0,
       };
     }
@@ -43,6 +44,7 @@ export function getOperationDetailClientPage(
           details: `Federated graph '${req.federatedGraphName}' not found`,
         },
         clients: [],
+        allClients: [],
         count: 0,
       };
     }
@@ -61,23 +63,35 @@ export function getOperationDetailClientPage(
     console.log(`range: ${range}, dateRange: ${JSON.stringify(dateRange)}`);
 
     const repo = new OperationsViewRepository(opts.chClient);
-    const view = await repo.getOperationClientListByNameHashType({
-      organizationId: authContext.organizationId,
-      graphId: graph.id,
-      operationName: req.operationName,
-      operationHash: req.operationHash,
-      operationType: req.operationType,
-      limit: req.limit,
-      offset: req.offset,
-      range,
-      dateRange,
-    });
+    const [view, allClients] = await Promise.all([
+      repo.getOperationClientListByNameHashType({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        operationName: req.operationName,
+        operationHash: req.operationHash,
+        operationType: req.operationType,
+        limit: req.limit,
+        offset: req.offset,
+        range,
+        dateRange,
+      }),
+      repo.getAllClientsWithVersionsForOperationByNameHashType({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        operationName: req.operationName,
+        operationHash: req.operationHash,
+        operationType: req.operationType,
+        range,
+        dateRange,
+      }),
+    ]);
 
     return {
       response: {
         code: EnumStatusCode.OK,
       },
       ...view,
+      ...allClients,
     };
   });
 }

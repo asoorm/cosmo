@@ -184,6 +184,56 @@ export class OperationsViewRepository {
     };
   }
 
+  public async getAllClientsWithVersionsForOperationByNameHashType({
+    organizationId,
+    graphId,
+    operationName,
+    operationHash,
+    operationType,
+    range,
+    dateRange,
+  }: {
+    organizationId: string;
+    graphId: string;
+    operationName: string;
+    operationHash: string;
+    operationType: string;
+    range?: number;
+    dateRange?: DateRange<string>;
+  }) {
+    const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
+
+    const query = `
+      WITH
+        toDateTime('${start}') AS startDate,
+        toDateTime('${end}') AS endDate
+      SELECT DISTINCT
+        "ClientName" AS name,
+        "ClientVersion" AS version
+      FROM
+        ${this.client.database}.operation_request_metrics_5_30
+      WHERE
+        "Timestamp" >= startDate AND "Timestamp" <= endDate
+        AND "OperationName" = '${operationName}'
+        AND "OperationType" = '${operationType}'
+        AND "OperationHash" = '${operationHash}'
+        AND "OrganizationID" = '${organizationId}'
+        AND "FederatedGraphID" = '${graphId}'
+      ORDER BY
+        name ASC, version ASC
+      LIMIT 100
+    `;
+
+    const result = await this.client.queryPromise<{
+      name: string;
+      version: string;
+    }>(query);
+
+    return {
+      allClients: result,
+    };
+  }
+
   public async getOperationClientListByNameHashType({
     organizationId,
     graphId,

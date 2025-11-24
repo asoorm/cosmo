@@ -62,8 +62,7 @@ const OperationDetailsPage: NextPageWithLayout = () => {
   );
 
   const { filters, columnFilters, resetFilters } = useOperationClientFilters(
-    data?.topClients || [],
-    data?.topErrorClients,
+    data?.allClients || [],
   );
 
   if (isLoading) return <Loader fullscreen />;
