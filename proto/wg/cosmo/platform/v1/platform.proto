@@ -2955,7 +2955,7 @@ message OperationDetailMetadata {
   string content = 3;
 }
 
-message OperationDetailTopClientNames {
+message OperationDetailTopClientItem {
   string name = 1;
   string version = 2;
   int64 count = 3;
@@ -2974,9 +2974,10 @@ message GetOperationDetailMetricsPageRequest {
 message GetOperationDetailMetricsPageResponse {
   Response response = 1;
   OperationDetailMetadata metadata = 2;
-  repeated OperationDetailTopClientNames topClients = 3;
-  OperationDetailRequestMetrics requestMetrics = 4;
-  OperationDetailLatencyMetrics latencyMetrics = 5;
+  repeated OperationDetailTopClientItem topClients = 3;
+  repeated OperationDetailTopClientItem topErrorClients = 4;
+  OperationDetailRequestMetrics requestMetrics = 5;
+  OperationDetailLatencyMetrics latencyMetrics = 6;
 }
 
 message OperationDetailClientPageItem {

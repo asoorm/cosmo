@@ -125,46 +125,70 @@ export class OperationsViewRepository {
   }) {
     const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
 
-    const query = `
-      WITH
+    const subQuery = `
+      WITH 
         toDateTime('${start}') AS startDate,
-        toDateTime('${end}') AS endDate
-      SELECT
-        "ClientName" as name,
-        "ClientVersion" as version,
-        SUM("TotalRequests") as count
-      FROM
-        ${this.client.database}.operation_request_metrics_5_30
-      WHERE
-        "Timestamp" >= startDate AND "Timestamp" <= endDate
-        AND "OperationName" = '${operationName}'
-        AND "OperationType" = '${operationType}'
-        AND "OperationHash" = '${operationHash}'
-        AND "OrganizationID" = '${organizationId}'
-        AND "FederatedGraphID" = '${graphId}'
-      GROUP BY
-        "ClientName",
-        "ClientVersion"
+        toDateTime('${end}') AS endDate,
+        clients AS (
+          SELECT
+            oprm."ClientName" as name,
+            oprm."ClientVersion" as version,
+            SUM(oprm."TotalRequests") as totalRequestCount,
+            SUM(oprm."TotalErrors") as totalErrorCount
+          FROM
+            ${this.client.database}.operation_request_metrics_5_30 as oprm
+          WHERE
+            oprm."Timestamp" >= startDate AND oprm."Timestamp" <= endDate
+            AND oprm."OperationName" = '${operationName}'
+            AND oprm."OperationType" = '${operationType}'
+            AND oprm."OperationHash" = '${operationHash}'
+            AND oprm."OrganizationID" = '${organizationId}'
+            AND oprm."FederatedGraphID" = '${graphId}'
+          GROUP BY
+            oprm."ClientName",
+            oprm."ClientVersion"
+        )
+    `;
+
+    const topClientQuery = `
+      ${subQuery}
+      SELECT clients.name, clients.version, clients.totalRequestCount as count
+      FROM clients
       ORDER BY
-        count DESC
+        clients.totalRequestCount DESC
       LIMIT
         5
     `;
 
-    const result = await this.client.queryPromise<{
-      name: string;
-      version: string;
-      count: string;
-    }>(query, {
-      organizationId,
-      graphId,
-      operationName,
-      operationHash,
-      operationType,
-    });
+    const topErrorClientQuery = `
+      ${subQuery}
+      SELECT clients.name, clients.version, clients.totalErrorCount as count
+      FROM clients
+      ORDER BY
+        clients.totalErrorCount DESC
+      LIMIT
+        5
+    `;
+
+    const [topClientResult, topErrorClientResult] = await Promise.all([
+      this.client.queryPromise<{
+        name: string;
+        version: string;
+        count: string;
+      }>(topClientQuery),
+      this.client.queryPromise<{
+        name: string;
+        version: string;
+        count: string;
+      }>(topErrorClientQuery),
+    ]);
 
     return {
-      topClients: result.map(({ count, ...row }) => ({
+      topClients: topClientResult.map(({ count, ...row }) => ({
+        ...row,
+        count: BigInt(count),
+      })),
+      topErrorClients: topErrorClientResult.map(({ count, ...row }) => ({
         ...row,
         count: BigInt(count),
       })),

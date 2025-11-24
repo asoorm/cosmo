@@ -196,9 +196,11 @@ const OperationDetailsPage: NextPageWithLayout = () => {
                   {data.requestMetrics?.totalErrorCount.toString()} errors
                 </TooltipContent>
               </Tooltip>
-              <p className="px-2 pb-4 text-xl font-semibold">
+              <p className="px-2 pb-2 text-xl font-semibold">
                 {formatPercentMetric(data.requestMetrics?.errorPercentage || 0)}
               </p>
+            </CardContent>
+            <CardContent className="min-h-48 border-b py-4">
               <Tooltip delayDuration={200}>
                 <TooltipTrigger asChild>
                   <h4 className="group pb-2 text-sm font-medium">
@@ -225,6 +227,34 @@ const OperationDetailsPage: NextPageWithLayout = () => {
                 <TooltipContent>View all clients</TooltipContent>
               </Tooltip>
               <ClientsChart data={data?.topClients || []} />
+            </CardContent>
+            <CardContent className="min-h-48 py-4">
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <h4 className="group pb-2 text-sm font-medium">
+                    <Link
+                      href={{
+                        pathname: `${router.pathname}/clients`,
+                        query: {
+                          organizationSlug,
+                          namespace,
+                          slug: router.query.slug,
+                          range,
+                          dateRange: router.query.dateRange ?? undefined,
+                          ...router.query,
+                        },
+                      }}
+                      className="inline-flex rounded-md px-2 py-1 hover:bg-muted"
+                    >
+                      Top {data.topClients.length} Error{" "}
+                      {data.topClients.length === 1 ? "Client" : "Clients"}
+                      <ChevronRightIcon className="h4 ml-1 w-4 transition-all group-hover:ml-2" />
+                    </Link>
+                  </h4>
+                </TooltipTrigger>
+                <TooltipContent>View all clients</TooltipContent>
+              </Tooltip>
+              <ClientsChart data={data?.topErrorClients || []} type="errors" />
             </CardContent>
           </Card>
         </div>

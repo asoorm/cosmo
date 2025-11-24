@@ -1,12 +1,15 @@
-import { OperationDetailTopClientNames } from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
+import { OperationDetailTopClientItem } from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
 import BarList from "@/components/analytics/barlist";
 import { useCallback } from "react";
+import { cn } from "@/lib/utils";
 
 export const ClientsChart = ({
   data,
+  type = "requests",
 }: {
-  data: OperationDetailTopClientNames[];
-  }) => {
+  data: OperationDetailTopClientItem[];
+  type?: "requests" | "errors";
+}) => {
   const valueFormatter = useCallback((number: number) => {
     if (number > Number.MAX_SAFE_INTEGER) {
       return `${Number.MAX_SAFE_INTEGER.toLocaleString()}+`;
@@ -33,27 +36,29 @@ export const ClientsChart = ({
     }
 
     return boundedName;
-  }, [])
+  }, []);
 
   return (
-      <BarList
-        data={data.map((row) => ({
-          key: row.name + row.version,
-          value: row.count ? normalizeCount(row.count) : 0,
-          name: (
-            <div className="flex items-center">
-              <span className="flex w-32 truncate shrink-0">
-                {renderName(row.name)}
-              </span>
-              <span className="truncate">
-                {row.version.slice(0, 15) || "-------"}
-              </span>
-            </div>
-          ),
-        }))}
-        valueFormatter={valueFormatter}
-        rowHeight={4}
-        rowClassName="bg-muted text-muted-foreground hover:text-foreground"
-      />
-  )
-}
+    <BarList
+      data={data.map((row) => ({
+        key: row.name + row.version,
+        value: row.count ? normalizeCount(row.count) : 0,
+        name: (
+          <div className="flex items-center">
+            <span className="flex w-32 shrink-0 truncate">
+              {renderName(row.name)}
+            </span>
+            <span className="truncate">
+              {row.version.slice(0, 15) || "-------"}
+            </span>
+          </div>
+        ),
+      }))}
+      valueFormatter={valueFormatter}
+      rowHeight={4}
+      rowClassName={cn("bg-muted text-muted-foreground hover:text-foreground", {
+        "bg-destructive/20": type === "errors",
+      })}
+    />
+  );
+};
