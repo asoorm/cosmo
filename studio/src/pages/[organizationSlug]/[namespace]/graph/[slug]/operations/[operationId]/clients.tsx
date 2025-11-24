@@ -22,7 +22,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useContext } from "react";
 
-const OperationDetailsPage: NextPageWithLayout = () => {
+const OperationClientsPage: NextPageWithLayout = () => {
   const router = useRouter();
   const [type, name, hash] = decodeURIComponent(
     router.query.operationId as string,
@@ -119,9 +119,9 @@ const OperationDetailsPage: NextPageWithLayout = () => {
   );
 };
 
-OperationDetailsPage.getLayout = (page) =>
+OperationClientsPage.getLayout = (page) =>
   getGraphLayout(page, {
     title: "Operation Clients",
   });
 
-export default OperationDetailsPage;
+export default OperationClientsPage;
