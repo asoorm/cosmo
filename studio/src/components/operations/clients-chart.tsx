@@ -18,12 +18,6 @@ export const ClientsChart = ({
     return number.toString();
   }, []);
 
-  const normalizeCount = useCallback((count: BigInt): number => {
-    const number = Number(count);
-
-    return number;
-  }, []);
-
   const renderName = useCallback((name: string) => {
     if (name.trim() === "") {
       return "-";
@@ -42,7 +36,7 @@ export const ClientsChart = ({
     <BarList
       data={data.map((row) => ({
         key: row.name + row.version,
-        value: row.count ? normalizeCount(row.count) : 0,
+        value: row.count,
         name: (
           <div className="flex items-center">
             <span className="flex w-32 shrink-0 truncate">

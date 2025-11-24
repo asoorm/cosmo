@@ -2909,7 +2909,7 @@ message OperationPageItem {
   string name = 2;
   string type = 3;
   string timestamp = 4;
-  int64 totalRequestCount = 5;
+  int32 totalRequestCount = 5;
   bool hasErrors = 6;
 }
 
@@ -2928,8 +2928,8 @@ message GetOperationsPageResponse {
 
 message OperationDetailRequestMetric {
   string timestamp = 1;
-  int64 requests = 2;
-  int64 errors = 3;
+  int32 requests = 2;
+  int32 errors = 3;
 }
 
 message OperationDetailLatencyMetric {
@@ -2940,8 +2940,8 @@ message OperationDetailLatencyMetric {
 
 message OperationDetailRequestMetrics {
   repeated OperationDetailRequestMetric requests = 1;
-  int64 totalRequestCount = 2;
-  int64 totalErrorCount = 3;
+  int32 totalRequestCount = 2;
+  int32 totalErrorCount = 3;
   double errorPercentage = 4;
 }
 
@@ -2958,7 +2958,7 @@ message OperationDetailMetadata {
 message OperationDetailTopClientItem {
   string name = 1;
   string version = 2;
-  int64 count = 3;
+  int32 count = 3;
 }
 
 message GetOperationDetailMetricsPageRequest {
@@ -2981,8 +2981,8 @@ message GetOperationDetailMetricsPageResponse {
 }
 
 message OperationDetailClientPageItem {
-  int64 totalRequests = 1;
-  int64 totalErrors = 2;
+  int32 totalRequests = 1;
+  int32 totalErrors = 2;
   string clientName = 3;
   string clientVersion = 4;
 }

@@ -16,17 +16,15 @@ export const RequestsChart = ({
   data,
   syncId,
 }: {
-  data: { timestamp: string; requests: bigint; errors: bigint }[];
+  data: { timestamp: string; requests: number; errors: number }[];
   syncId: string;
 }) => {
-  const chartData = data.map(({ requests, errors, timestamp, ...rest }) => {
+  const chartData = data.map(({ timestamp, ...rest }) => {
     const isoTimestamp = timestamp.replace(" ", "T") + "Z";
     const timestampMs = new Date(isoTimestamp).getTime();
 
     return {
       ...rest,
-      requests: Number(requests),
-      errors: Number(errors),
       timestamp: timestampMs,
     };
   });

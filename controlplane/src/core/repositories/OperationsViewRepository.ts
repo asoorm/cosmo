@@ -25,7 +25,7 @@ export class OperationsViewRepository {
         "OperationName" AS name,
         "OperationType" AS type,
         max("Timestamp") AS timestamp,
-        sum("TotalRequests") as totalRequestCount,
+        toInt32(sum("TotalRequests")) as totalRequestCount,
         IF(sum("TotalErrors") > 0, true, false) as hasErrors,
         count("OperationHash") OVER () AS count 
       FROM
@@ -47,17 +47,18 @@ export class OperationsViewRepository {
       name: string;
       type: string;
       timestamp: string;
-      totalRequestCount: string;
+      totalRequestCount: number;
       hasErrors: boolean;
       count: number;
-    }>(query, { organizationId, graphId, limit, offset });
+    }>(query);
+    const operations = result.map((row) => ({
+      ...row,
+      count: Number(row.count),
+    }));
 
     return {
-      count: Number(result?.[0]?.count ?? 0),
-      operations: result.map(({ count, totalRequestCount, ...row }) => ({
-        ...row,
-        totalRequestCount: BigInt(totalRequestCount),
-      })),
+      count: operations[0]?.count ?? 0,
+      operations,
     };
   }
 
@@ -133,8 +134,8 @@ export class OperationsViewRepository {
           SELECT
             oprm."ClientName" as name,
             oprm."ClientVersion" as version,
-            SUM(oprm."TotalRequests") as totalRequestCount,
-            SUM(oprm."TotalErrors") as totalErrorCount
+            toInt32(sum(oprm."TotalRequests")) as totalRequestCount,
+            toInt32(sum(oprm."TotalErrors")) as totalErrorCount
           FROM
             ${this.client.database}.operation_request_metrics_5_30 as oprm
           WHERE
@@ -174,24 +175,18 @@ export class OperationsViewRepository {
       this.client.queryPromise<{
         name: string;
         version: string;
-        count: string;
+        count: number;
       }>(topClientQuery),
       this.client.queryPromise<{
         name: string;
         version: string;
-        count: string;
+        count: number;
       }>(topErrorClientQuery),
     ]);
 
     return {
-      topClients: topClientResult.map(({ count, ...row }) => ({
-        ...row,
-        count: BigInt(count),
-      })),
-      topErrorClients: topErrorClientResult.map(({ count, ...row }) => ({
-        ...row,
-        count: BigInt(count),
-      })),
+      topClients: topClientResult,
+      topErrorClients: topErrorClientResult,
     };
   }
 
@@ -223,8 +218,8 @@ export class OperationsViewRepository {
         toDateTime('${start}') AS startDate,
         toDateTime('${end}') AS endDate
       SELECT
-        sum("TotalRequests") AS totalRequests,
-        sum("TotalErrors") AS totalErrors,
+        toInt32(sum("TotalRequests")) AS totalRequests,
+        toInt32(sum("TotalErrors")) AS totalErrors,
         "ClientName" AS clientName,
         "ClientVersion" AS clientVersion,
         COUNT(*) OVER() as count
@@ -246,20 +241,21 @@ export class OperationsViewRepository {
     `;
 
     const result = await this.client.queryPromise<{
-      totalRequests: string;
-      totalErrors: string;
+      totalRequests: number;
+      totalErrors: number;
       clientName: string;
       clientVersion: string;
       count: number;
     }>(query);
 
+    const clients = result.map((row) => ({
+      ...row,
+      count: Number(row.count),
+    }));
+
     return {
-      count: Number(result?.[0]?.count ?? 0),
-      clients: result.map(({ count, totalRequests, totalErrors, ...row }) => ({
-        ...row,
-        totalRequests: BigInt(totalRequests),
-        totalErrors: BigInt(totalErrors),
-      })),
+      count: clients[0]?.count ?? 0,
+      clients,
     };
   }
 
@@ -288,8 +284,8 @@ export class OperationsViewRepository {
         toDateTime('${end}') AS endDate
       SELECT
         toStartOfInterval(startDate + toIntervalMinute(n.number * 5), INTERVAL 5 MINUTE) as timestamp,
-        sum(oprm."TotalRequests") as requests,
-        sum(oprm."TotalErrors") as errors
+        toInt32(sum(oprm."TotalRequests")) as requests,
+        toInt32(sum(oprm."TotalErrors")) as errors
       FROM
         numbers(toUInt32((toUnixTimestamp(endDate) - toUnixTimestamp(startDate)) / 300)) AS n
       LEFT JOIN ${this.client.database}.operation_request_metrics_5_30 AS oprm
@@ -310,8 +306,8 @@ export class OperationsViewRepository {
         toDateTime('${start}') AS startDate,
         toDateTime('${end}') AS endDate
       SELECT
-        sum("TotalRequests") as totalRequestCount,
-        sum("TotalErrors") as totalErrorCount,
+        toInt32(sum("TotalRequests")) as totalRequestCount,
+        toInt32(sum("TotalErrors")) as totalErrorCount,
         if(totalErrorCount > 0, round(totalErrorCount / totalRequestCount * 100, 2), 0) errorPercentage
       FROM
         ${this.client.database}.operation_request_metrics_5_30
@@ -329,30 +325,24 @@ export class OperationsViewRepository {
 
     const metricsResultQueryPromise = this.client.queryPromise<{
       timestamp: string;
-      requests: string;
-      errors: string;
+      requests: number;
+      errors: number;
     }>(metricsQuery);
     const sumResultQueryPromise = this.client.queryPromise<{
-      totalRequestCount: string;
-      totalErrorCount: string;
+      totalRequestCount: number;
+      totalErrorCount: number;
       errorPercentage: string;
     }>(sumQuery);
 
     const [result, sumResult] = await Promise.all([metricsResultQueryPromise, sumResultQueryPromise]);
 
-    const requests = result.map(({ timestamp, requests, errors }) => ({
-      timestamp,
-      requests: BigInt(requests),
-      errors: BigInt(errors),
-    }));
-
-    const totalRequestCount = sumResult[0]?.totalRequestCount ? BigInt(sumResult[0]?.totalRequestCount) : 0n;
-    const totalErrorCount = sumResult[0]?.totalErrorCount ? BigInt(sumResult[0]?.totalErrorCount) : 0n;
+    const totalRequestCount = sumResult[0]?.totalRequestCount ?? 0;
+    const totalErrorCount = sumResult[0]?.totalErrorCount ?? 0;
     const errorPercentage = sumResult[0]?.errorPercentage ? Number(sumResult[0]?.errorPercentage) : 0;
 
     return {
       requestMetrics: {
-        requests,
+        requests: result,
         totalRequestCount,
         totalErrorCount,
         errorPercentage,

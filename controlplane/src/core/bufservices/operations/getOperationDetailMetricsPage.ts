@@ -26,11 +26,15 @@ export function getOperationDetailMetricsPage(
           code: EnumStatusCode.ERR_ANALYTICS_DISABLED,
         },
         topClients: [],
+        topErrorClients: [],
         requestMetrics: {
           requests: [],
-          totalRequestCount: 0n,
-          totalErrorCount: 0n,
+          totalRequestCount: 0,
+          totalErrorCount: 0,
           errorPercentage: 0,
+        },
+        latencyMetrics: {
+          requests: [],
         },
       };
     }
@@ -48,11 +52,15 @@ export function getOperationDetailMetricsPage(
           details: `Federated graph '${req.federatedGraphName}' not found`,
         },
         topClients: [],
+        topErrorClients: [],
         requestMetrics: {
           requests: [],
-          totalRequestCount: 0n,
-          totalErrorCount: 0n,
+          totalRequestCount: 0,
+          totalErrorCount: 0,
           errorPercentage: 0,
+        },
+        latencyMetrics: {
+          requests: [],
         },
       };
     }

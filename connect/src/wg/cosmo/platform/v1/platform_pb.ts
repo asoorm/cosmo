@@ -22765,9 +22765,9 @@ export class OperationPageItem extends Message<OperationPageItem> {
   timestamp = "";
 
   /**
-   * @generated from field: int64 totalRequestCount = 5;
+   * @generated from field: int32 totalRequestCount = 5;
    */
-  totalRequestCount = protoInt64.zero;
+  totalRequestCount = 0;
 
   /**
    * @generated from field: bool hasErrors = 6;
@@ -22786,7 +22786,7 @@ export class OperationPageItem extends Message<OperationPageItem> {
     { no: 2, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "type", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "timestamp", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 5, name: "totalRequestCount", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 5, name: "totalRequestCount", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 6, name: "hasErrors", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ]);
 
@@ -22921,14 +22921,14 @@ export class OperationDetailRequestMetric extends Message<OperationDetailRequest
   timestamp = "";
 
   /**
-   * @generated from field: int64 requests = 2;
+   * @generated from field: int32 requests = 2;
    */
-  requests = protoInt64.zero;
+  requests = 0;
 
   /**
-   * @generated from field: int64 errors = 3;
+   * @generated from field: int32 errors = 3;
    */
-  errors = protoInt64.zero;
+  errors = 0;
 
   constructor(data?: PartialMessage<OperationDetailRequestMetric>) {
     super();
@@ -22939,8 +22939,8 @@ export class OperationDetailRequestMetric extends Message<OperationDetailRequest
   static readonly typeName = "wg.cosmo.platform.v1.OperationDetailRequestMetric";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "timestamp", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "requests", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
-    { no: 3, name: "errors", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 2, name: "requests", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 3, name: "errors", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OperationDetailRequestMetric {
@@ -23019,14 +23019,14 @@ export class OperationDetailRequestMetrics extends Message<OperationDetailReques
   requests: OperationDetailRequestMetric[] = [];
 
   /**
-   * @generated from field: int64 totalRequestCount = 2;
+   * @generated from field: int32 totalRequestCount = 2;
    */
-  totalRequestCount = protoInt64.zero;
+  totalRequestCount = 0;
 
   /**
-   * @generated from field: int64 totalErrorCount = 3;
+   * @generated from field: int32 totalErrorCount = 3;
    */
-  totalErrorCount = protoInt64.zero;
+  totalErrorCount = 0;
 
   /**
    * @generated from field: double errorPercentage = 4;
@@ -23042,8 +23042,8 @@ export class OperationDetailRequestMetrics extends Message<OperationDetailReques
   static readonly typeName = "wg.cosmo.platform.v1.OperationDetailRequestMetrics";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "requests", kind: "message", T: OperationDetailRequestMetric, repeated: true },
-    { no: 2, name: "totalRequestCount", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
-    { no: 3, name: "totalErrorCount", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 2, name: "totalRequestCount", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 3, name: "totalErrorCount", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 4, name: "errorPercentage", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
   ]);
 
@@ -23165,9 +23165,9 @@ export class OperationDetailTopClientItem extends Message<OperationDetailTopClie
   version = "";
 
   /**
-   * @generated from field: int64 count = 3;
+   * @generated from field: int32 count = 3;
    */
-  count = protoInt64.zero;
+  count = 0;
 
   constructor(data?: PartialMessage<OperationDetailTopClientItem>) {
     super();
@@ -23179,7 +23179,7 @@ export class OperationDetailTopClientItem extends Message<OperationDetailTopClie
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "version", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 3, name: "count", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 3, name: "count", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): OperationDetailTopClientItem {
@@ -23344,14 +23344,14 @@ export class GetOperationDetailMetricsPageResponse extends Message<GetOperationD
  */
 export class OperationDetailClientPageItem extends Message<OperationDetailClientPageItem> {
   /**
-   * @generated from field: int64 totalRequests = 1;
+   * @generated from field: int32 totalRequests = 1;
    */
-  totalRequests = protoInt64.zero;
+  totalRequests = 0;
 
   /**
-   * @generated from field: int64 totalErrors = 2;
+   * @generated from field: int32 totalErrors = 2;
    */
-  totalErrors = protoInt64.zero;
+  totalErrors = 0;
 
   /**
    * @generated from field: string clientName = 3;
@@ -23371,8 +23371,8 @@ export class OperationDetailClientPageItem extends Message<OperationDetailClient
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "wg.cosmo.platform.v1.OperationDetailClientPageItem";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "totalRequests", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
-    { no: 2, name: "totalErrors", kind: "scalar", T: 3 /* ScalarType.INT64 */ },
+    { no: 1, name: "totalRequests", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 2, name: "totalErrors", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 3, name: "clientName", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "clientVersion", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);

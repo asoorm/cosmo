@@ -40,8 +40,8 @@ export const ClientsTable = ({
               >
                 <TableCell>{operation.clientName}</TableCell>
                 <TableCell>{operation.clientVersion}</TableCell>
-                <TableCell>{operation.totalRequests.toString()}</TableCell>
-                <TableCell>{operation.totalErrors.toString()}</TableCell>
+                <TableCell>{operation.totalRequests}</TableCell>
+                <TableCell>{operation.totalErrors}</TableCell>
               </TableRow>
             ))}
           </TableBody>
