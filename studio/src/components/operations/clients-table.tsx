@@ -3,6 +3,7 @@ import type { SortingState } from "@tanstack/react-table";
 import type { Dispatch, SetStateAction, SyntheticEvent } from "react";
 import { useCallback } from "react";
 import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/outline";
+import { cn } from "@/lib/utils";
 import { Pagination } from "../ui/pagination";
 import {
   Table,
@@ -97,6 +98,7 @@ export const ClientsTable = ({
           {list.map((operation) => (
             <TableRow
               key={`${operation.clientName}-${operation.clientVersion}`}
+              className={cn({"bg-destructive/10": operation.totalErrors > 0})}
             >
               <TableCell>{operation.clientName}</TableCell>
               <TableCell>{operation.clientVersion}</TableCell>
