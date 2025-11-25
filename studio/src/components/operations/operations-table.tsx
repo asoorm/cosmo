@@ -114,7 +114,7 @@ export const OperationsTable = ({
             />
             <SortableTableHead
               id="timestamp"
-              label="Last Called"
+              label="Timestamp"
               sorting={sorting}
               onClick={handleHeaderClick}
             />
