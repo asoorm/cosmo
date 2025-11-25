@@ -11,9 +11,9 @@ export class OperationsDetailViewRepository {
   constructor(private client: ClickHouseClient) {}
 
   /**
-  * Obtains basic metadata information regarding given operation
-  * identified by its name, hash and type.
-  */
+   * Obtains basic metadata information regarding given operation
+   * identified by its name, hash and type.
+   */
   public async getOperationMetadataByNameHashType({
     organizationId,
     graphId,
@@ -54,9 +54,9 @@ export class OperationsDetailViewRepository {
   }
 
   /**
-  * Obtains top clients by request and error count for given operation
-  * identified by its name, hash and type.
-  */
+   * Obtains top clients by request and error count for given operation
+   * identified by its name, hash and type.
+   */
   public async getTopClientsForOperationByNameHashType({
     organizationId,
     graphId,
@@ -142,14 +142,14 @@ export class OperationsDetailViewRepository {
 
     return {
       topClients: topClientResult,
-      topErrorClients: anyErrors ?  topErrorClientResult : [],
+      topErrorClients: anyErrors ? topErrorClientResult : [],
     };
   }
 
   /**
-  * Obtains all clients with their versions for given operation
-  * identified by its name, hash and type.
-  */
+   * Obtains all clients with their versions for given operation
+   * identified by its name, hash and type.
+   */
   public async getAllClientsWithVersionsForOperationByNameHashType({
     organizationId,
     graphId,
@@ -191,9 +191,9 @@ export class OperationsDetailViewRepository {
   }
 
   /**
-  * Obtains paginated list of clients for given operation
-  * identified by its name, hash and type.
-  */
+   * Obtains paginated list of clients for given operation
+   * identified by its name, hash and type.
+   */
   public async getOperationClientListByNameHashType({
     organizationId,
     graphId,
@@ -271,9 +271,9 @@ export class OperationsDetailViewRepository {
   }
 
   /**
-  * Filtered total request / error metrics for given operation
-  * identified by its name, hash and type.
-  */
+   * Filtered total request / error metrics for given operation
+   * identified by its name, hash and type.
+   */
   public async getRequestsForOperationByNameHashType({
     organizationId,
     graphId,
@@ -370,9 +370,9 @@ export class OperationsDetailViewRepository {
   }
 
   /**
-  * Filtered latency metrics for given operation
-  * identified by its name, hash and type.
-  */
+   * Filtered latency metrics for given operation
+   * identified by its name, hash and type.
+   */
   public async getLatencyForOperationByNameHashType({
     organizationId,
     graphId,
