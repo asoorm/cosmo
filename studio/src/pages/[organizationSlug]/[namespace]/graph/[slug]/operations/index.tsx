@@ -10,7 +10,7 @@ import { Loader } from "@/components/ui/loader";
 import { Pagination } from "@/components/ui/pagination";
 import { GraphContext } from "@/components/layout/graph-layout";
 import { OperationsTable } from "@/components/operations/operations-table";
-import { OperationsPageToolbar } from "@/components/operations/operations-page-toolbar";
+import { FiltersToolbar } from "@/components/operations/filters-toolbar";
 import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
 import { useSortingState } from "@/components/operations/use-sorting-state";
 import { useOperationsFilters } from "@/components/operations/use-operations-filters";
@@ -95,7 +95,7 @@ const OperationsPage: NextPageWithLayout = () => {
 
   return (
     <div className="flex h-full flex-col gap-y-3">
-      <OperationsPageToolbar
+      <FiltersToolbar
         range={range}
         dateRange={dateRange}
         filters={filters}

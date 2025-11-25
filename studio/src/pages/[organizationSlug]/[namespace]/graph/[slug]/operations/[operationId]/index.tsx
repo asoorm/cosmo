@@ -11,7 +11,7 @@ import { NextPageWithLayout } from "@/lib/page";
 import { useCurrentOrganization } from "@/hooks/use-current-organization";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { OperationsToolbar } from "@/components/operations/operations-toolbar";
-import { OperationDetailToolbar } from "@/components/operations/operation-detail-toolbar";
+import { FiltersToolbar } from "@/components/operations/filters-toolbar";
 import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
@@ -113,7 +113,7 @@ const OperationDetailsPage: NextPageWithLayout = () => {
       toolbar={<OperationsToolbar tab="metrics" />}
     >
       <div className="w-full space-y-4">
-        <OperationDetailToolbar
+        <FiltersToolbar
           range={range}
           dateRange={dateRange}
           filters={filters}

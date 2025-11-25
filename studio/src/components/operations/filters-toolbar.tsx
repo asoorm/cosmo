@@ -14,7 +14,7 @@ import {
 } from "../analytics/filters";
 import { ColumnFiltersState } from "@tanstack/react-table";
 
-export const OperationsPageToolbar = ({
+export const FiltersToolbar = ({
   range,
   dateRange,
   filters = [],

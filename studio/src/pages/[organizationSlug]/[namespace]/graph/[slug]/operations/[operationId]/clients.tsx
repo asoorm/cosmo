@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ClientsTable } from "@/components/operations/clients-table";
 import { OperationsToolbar } from "@/components/operations/operations-toolbar";
 import { GraphContext } from "@/components/layout/graph-layout";
-import { OperationDetailToolbar } from "@/components/operations/operation-detail-toolbar";
+import { FiltersToolbar } from "@/components/operations/filters-toolbar";
 import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
 import { useOperationClientFilters, transformFiltersForAPI } from "@/components/operations/use-operation-client-filters";
 import { useFilterState } from "@/components/operations/use-filter-state";
@@ -121,7 +121,7 @@ const OperationClientsPage: NextPageWithLayout = () => {
       toolbar={<OperationsToolbar tab="clients" />}
     >
       <div className="w-full space-y-4">
-        <OperationDetailToolbar
+        <FiltersToolbar
           range={range}
           dateRange={dateRange}
           filters={filters}
