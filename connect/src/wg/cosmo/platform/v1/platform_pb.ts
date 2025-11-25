@@ -23460,6 +23460,11 @@ export class GetOperationDetailClientPageRequest extends Message<GetOperationDet
    */
   filters: AnalyticsFilter[] = [];
 
+  /**
+   * @generated from field: repeated wg.cosmo.platform.v1.Sort sorting = 11;
+   */
+  sorting: Sort[] = [];
+
   constructor(data?: PartialMessage<GetOperationDetailClientPageRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -23478,6 +23483,7 @@ export class GetOperationDetailClientPageRequest extends Message<GetOperationDet
     { no: 8, name: "dateRange", kind: "message", T: DateRange },
     { no: 9, name: "range", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
     { no: 10, name: "filters", kind: "message", T: AnalyticsFilter, repeated: true },
+    { no: 11, name: "sorting", kind: "message", T: Sort, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationDetailClientPageRequest {

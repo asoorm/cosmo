@@ -15,6 +15,7 @@ import { GraphContext } from "@/components/layout/graph-layout";
 import { OperationDetailToolbar } from "@/components/operations/operation-detail-toolbar";
 import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
 import { useOperationClientFilters, useOperationFilterState, transformFiltersForAPI } from "@/components/operations/use-operation-client-filters";
+import { useSortingState } from "@/components/operations/use-sorting-state";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
@@ -22,6 +23,10 @@ import { formatISO } from "date-fns";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { useContext } from "react";
+
+const DEFAULT_CLIENTS_TABLE_SORT = [
+  { id: "totalRequests", desc: true },
+]
 
 const OperationClientsPage: NextPageWithLayout = () => {
   const router = useRouter();
@@ -34,6 +39,7 @@ const OperationClientsPage: NextPageWithLayout = () => {
     namespace: { name: namespace },
   } = useWorkspace();
 
+  const { sorting, setSorting } = useSortingState(DEFAULT_CLIENTS_TABLE_SORT);
   const { range, dateRange } = useOperationClientsState();
 
   const graphContext = useContext(GraphContext);
@@ -61,6 +67,7 @@ const OperationClientsPage: NextPageWithLayout = () => {
         }
         : undefined,
       filters: transformFiltersForAPI(columnFilters),
+      sorting,
     },
     {
       placeholderData: (prev) => prev,
@@ -125,6 +132,8 @@ const OperationClientsPage: NextPageWithLayout = () => {
           noOfPages={Math.ceil(data.count / limit)}
           pageNumber={pageNumber}
           limit={limit}
+          sorting={sorting}
+          setSorting={setSorting}
         />
       </div>
     </GraphPageLayout>

@@ -75,6 +75,7 @@ export function getOperationDetailClientPage(
         range,
         dateRange,
         filters: req.filters,
+        sorting: req.sorting,
       }),
       repo.getAllClientsWithVersionsForOperationByNameHashType({
         organizationId: authContext.organizationId,

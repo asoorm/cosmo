@@ -1,4 +1,4 @@
-import { AnalyticsFilter, AnalyticsViewFilterOperator } from '@wundergraph/cosmo-connect/dist/platform/v1/platform_pb';
+import { AnalyticsFilter, AnalyticsViewFilterOperator, Sort } from '@wundergraph/cosmo-connect/dist/platform/v1/platform_pb';
 import { DateRange } from '../../types/index.js';
 import { ClickHouseClient } from '../clickhouse/index.js';
 import { isoDateRangeToTimestamps, getDateRange } from './analytics/util.js';
@@ -240,6 +240,7 @@ export class OperationsViewRepository {
     range,
     dateRange,
     filters = [],
+    sorting = [],
   }: {
     organizationId: string;
     graphId: string;
@@ -251,9 +252,11 @@ export class OperationsViewRepository {
     range?: number;
     dateRange?: DateRange<string>;
     filters?: AnalyticsFilter[];
+    sorting?: Sort[];
   }) {
     const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
     const filterClause = OperationsViewRepository.buildClientFilterClauses(filters);
+    const orderByClause = OperationsViewRepository.buildOrderByClause(sorting);
 
     const query = `
       WITH
@@ -279,7 +282,7 @@ export class OperationsViewRepository {
         "ClientName",
         "ClientVersion"
       ORDER BY
-        totalRequests DESC
+        ${orderByClause}
       LIMIT ${limit} OFFSET ${offset}
     `;
 
@@ -497,5 +500,25 @@ export class OperationsViewRepository {
     }
 
     return clauses.length > 0 ? `AND ${clauses.join(' AND ')}` : '';
+  }
+
+  private static buildOrderByClause(sorting: Sort[], defaultSort = 'totalRequests DESC'): string {
+    if (sorting.length === 0) {
+      return defaultSort;
+    }
+
+    const columnMap: Record<string, string> = {
+      clientName: 'clientName',
+      clientVersion: 'clientVersion',
+      totalRequests: 'totalRequests',
+      totalErrors: 'totalErrors',
+    };
+
+    return sorting
+      .map(s => {
+        const column = columnMap[s.id] || s.id;
+        return `${column} ${s.desc ? 'DESC' : 'ASC'}`;
+      })
+      .join(', ');
   }
 }
