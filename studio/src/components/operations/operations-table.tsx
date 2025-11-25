@@ -15,7 +15,10 @@ import { useRouter } from "next/router";
 import type { ReactNode } from "react";
 import { HiOutlineCheck } from "react-icons/hi2";
 import type { SortingState } from "@tanstack/react-table";
-import { SortableTableHead, useSortableTableHeader } from "./sortable-table-head";
+import {
+  SortableTableHead,
+  useSortableTableHeader,
+} from "./sortable-table-head";
 
 const OperationsTableRow = ({
   children,
@@ -51,7 +54,8 @@ const OperationsTableRow = ({
     if (query.dateRange) dateQuery.dateRange = query.dateRange;
 
     router.push({
-      pathname: "/[organizationSlug]/[namespace]/graph/[slug]/operations/[operationId]",
+      pathname:
+        "/[organizationSlug]/[namespace]/graph/[slug]/operations/[operationId]",
       query: dateQuery,
     });
   };
@@ -93,14 +97,39 @@ export const OperationsTable = ({
 
   return (
     <TableWrapper>
-      <Table>
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
-            <SortableTableHead id="name" label="Name" sorting={sorting} onClick={handleHeaderClick} />
-            <SortableTableHead id="type" label="Type" sorting={sorting} onClick={handleHeaderClick} />
-            <SortableTableHead id="timestamp" label="Last Called" sorting={sorting} onClick={handleHeaderClick} />
-            <SortableTableHead id="totalRequestCount" label="Requests" sorting={sorting} onClick={handleHeaderClick} />
-            <SortableTableHead id="hasErrors" label="Health" sorting={sorting} onClick={handleHeaderClick} />
+            <SortableTableHead
+              id="name"
+              label="Name"
+              sorting={sorting}
+              onClick={handleHeaderClick}
+            />
+            <SortableTableHead
+              id="type"
+              label="Type"
+              sorting={sorting}
+              onClick={handleHeaderClick}
+            />
+            <SortableTableHead
+              id="timestamp"
+              label="Last Called"
+              sorting={sorting}
+              onClick={handleHeaderClick}
+            />
+            <SortableTableHead
+              id="totalRequestCount"
+              label="Requests"
+              sorting={sorting}
+              onClick={handleHeaderClick}
+            />
+            <SortableTableHead
+              id="hasErrors"
+              label="Health"
+              sorting={sorting}
+              onClick={handleHeaderClick}
+            />
           </TableRow>
         </TableHeader>
         <TableBody>

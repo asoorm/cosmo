@@ -10,7 +10,10 @@ import {
   TableRow,
   TableWrapper,
 } from "../ui/table";
-import { SortableTableHead, useSortableTableHeader } from "./sortable-table-head";
+import {
+  SortableTableHead,
+  useSortableTableHeader,
+} from "./sortable-table-head";
 
 export const ClientsTable = ({
   list,
@@ -30,33 +33,55 @@ export const ClientsTable = ({
   const { handleHeaderClick } = useSortableTableHeader(sorting, setSorting);
 
   return (
-  <>
-    <TableWrapper>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <SortableTableHead id="clientName" label="Client Name" sorting={sorting} onClick={handleHeaderClick} />
-            <SortableTableHead id="clientVersion" label="Client Version" sorting={sorting} onClick={handleHeaderClick} />
-            <SortableTableHead id="totalRequests" label="Requests" sorting={sorting} onClick={handleHeaderClick} />
-            <SortableTableHead id="totalErrors" label="Errors" sorting={sorting} onClick={handleHeaderClick} />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {list.map((operation) => (
-            <TableRow
-              key={`${operation.clientName}-${operation.clientVersion}`}
-              className={cn({"bg-destructive/10": operation.totalErrors > 0})}
-            >
-              <TableCell>{operation.clientName}</TableCell>
-              <TableCell>{operation.clientVersion}</TableCell>
-              <TableCell>{operation.totalRequests}</TableCell>
-              <TableCell>{operation.totalErrors}</TableCell>
+    <>
+      <TableWrapper>
+        <Table className="table-fixed">
+          <TableHeader>
+            <TableRow>
+              <SortableTableHead
+                id="clientName"
+                label="Client Name"
+                sorting={sorting}
+                onClick={handleHeaderClick}
+              />
+              <SortableTableHead
+                id="clientVersion"
+                label="Client Version"
+                sorting={sorting}
+                onClick={handleHeaderClick}
+              />
+              <SortableTableHead
+                id="totalRequests"
+                label="Requests"
+                sorting={sorting}
+                onClick={handleHeaderClick}
+              />
+              <SortableTableHead
+                id="totalErrors"
+                label="Errors"
+                sorting={sorting}
+                onClick={handleHeaderClick}
+              />
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableWrapper>
-    <Pagination limit={limit} noOfPages={noOfPages} pageNumber={pageNumber} />
-  </>
-);
+          </TableHeader>
+          <TableBody>
+            {list.map((operation) => (
+              <TableRow
+                key={`${operation.clientName}-${operation.clientVersion}`}
+                className={cn({
+                  "bg-destructive/10": operation.totalErrors > 0,
+                })}
+              >
+                <TableCell>{operation.clientName}</TableCell>
+                <TableCell>{operation.clientVersion}</TableCell>
+                <TableCell>{operation.totalRequests}</TableCell>
+                <TableCell>{operation.totalErrors}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableWrapper>
+      <Pagination limit={limit} noOfPages={noOfPages} pageNumber={pageNumber} />
+    </>
+  );
 };

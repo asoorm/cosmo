@@ -7,7 +7,11 @@ import type {
   DateRangePickerChangeHandler,
 } from "../date-picker-with-range";
 import { useApplyParams } from "../analytics/use-apply-params";
-import { AnalyticsFilters, AnalyticsSelectedFilters, AnalyticsFilter } from "../analytics/filters";
+import {
+  AnalyticsFilters,
+  AnalyticsSelectedFilters,
+  AnalyticsFilter,
+} from "../analytics/filters";
 import { ColumnFiltersState } from "@tanstack/react-table";
 
 export const OperationsPageToolbar = ({
@@ -48,16 +52,14 @@ export const OperationsPageToolbar = ({
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-2">
-        <DatePickerWithRange
-          range={range}
-          dateRange={dateRange}
-          onChange={onDateRangeChange}
-          calendarDaysLimit={tracingRetention}
-        />
-        <AnalyticsFilters filters={filters} />
-      </div>
+    <div className="flex flex-wrap gap-2">
+      <DatePickerWithRange
+        range={range}
+        dateRange={dateRange}
+        onChange={onDateRangeChange}
+        calendarDaysLimit={tracingRetention}
+      />
+      <AnalyticsFilters filters={filters} />
       <AnalyticsSelectedFilters
         filters={filters}
         selectedFilters={selectedFilters}
