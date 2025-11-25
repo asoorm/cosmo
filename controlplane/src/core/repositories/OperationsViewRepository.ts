@@ -310,6 +310,7 @@ export class OperationsViewRepository {
     operationType,
     range,
     dateRange,
+    filters = [],
   }: {
     organizationId: string;
     graphId: string;
@@ -318,8 +319,10 @@ export class OperationsViewRepository {
     operationType: string;
     range?: number;
     dateRange?: DateRange<string>;
+    filters?: AnalyticsFilter[];
   }) {
     const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
+    const filterClause = OperationsViewRepository.buildClientFilterClauses(filters, 'oprm');
 
     const metricsQuery = `
       WITH
@@ -340,6 +343,7 @@ export class OperationsViewRepository {
         AND oprm."OperationHash" = '${operationHash}'
         AND oprm."OrganizationID" = '${organizationId}'
         AND oprm."FederatedGraphID" = '${graphId}'
+        ${filterClause}
       GROUP BY timestamp
       ORDER BY timestamp ASC
     `;
@@ -401,6 +405,7 @@ export class OperationsViewRepository {
     operationType,
     range,
     dateRange,
+    filters = [],
   }: {
     organizationId: string;
     graphId: string;
@@ -409,8 +414,10 @@ export class OperationsViewRepository {
     operationType: string;
     range?: number;
     dateRange?: DateRange<string>;
+    filters?: AnalyticsFilter[];
   }) {
     const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
+    const filterClause = OperationsViewRepository.buildClientFilterClauses(filters, 'oplm');
 
     const query = `
       WITH
@@ -431,6 +438,7 @@ export class OperationsViewRepository {
         AND oplm."OperationHash" = '${operationHash}'
         AND oplm."OrganizationID" = '${organizationId}'
         AND oplm."FederatedGraphID" = '${graphId}'
+        ${filterClause}
       GROUP BY timestamp
       ORDER BY timestamp ASC
     `;

@@ -105,6 +105,7 @@ export function getOperationDetailMetricsPage(
         operationType: req.operationType,
         range,
         dateRange,
+        filters: req.filters,
       }),
       repo.getLatencyForOperationByNameHashType({
         organizationId: authContext.organizationId,
@@ -114,6 +115,7 @@ export function getOperationDetailMetricsPage(
         operationType: req.operationType,
         range,
         dateRange,
+        filters: req.filters,
       }),
       repo.getAllClientsWithVersionsForOperationByNameHashType({
         organizationId: authContext.organizationId,
