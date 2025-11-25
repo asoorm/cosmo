@@ -14,7 +14,8 @@ import { OperationsToolbar } from "@/components/operations/operations-toolbar";
 import { GraphContext } from "@/components/layout/graph-layout";
 import { OperationDetailToolbar } from "@/components/operations/operation-detail-toolbar";
 import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
-import { useOperationClientFilters, useOperationFilterState, transformFiltersForAPI } from "@/components/operations/use-operation-client-filters";
+import { useOperationClientFilters, transformFiltersForAPI } from "@/components/operations/use-operation-client-filters";
+import { useFilterState } from "@/components/operations/use-filter-state";
 import { useSortingState } from "@/components/operations/use-sorting-state";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
@@ -47,7 +48,7 @@ const OperationClientsPage: NextPageWithLayout = () => {
     ? parseInt(router.query.page as string)
     : 1;
   const limit = Number.parseInt((router.query.pageSize as string) || "10");
-  const columnFilters = useOperationFilterState();
+  const columnFilters = useFilterState();
 
   const { data, isLoading, error, refetch } = useQuery(
     getOperationDetailClientPage,

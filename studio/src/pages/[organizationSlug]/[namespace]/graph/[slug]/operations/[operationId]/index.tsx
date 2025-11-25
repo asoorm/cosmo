@@ -24,7 +24,8 @@ import { DetailCard } from "@/components/operations/detail-card";
 import { LatencyCard } from "@/components/operations/latency-card";
 import { RequestsCard } from "@/components/operations/requests-card";
 import { ErrorPercentageCard } from "@/components/operations/error-percentage-card";
-import { useOperationClientFilters, useOperationFilterState, transformFiltersForAPI } from "@/components/operations/use-operation-client-filters";
+import { useOperationClientFilters, transformFiltersForAPI } from "@/components/operations/use-operation-client-filters";
+import { useFilterState } from "@/components/operations/use-filter-state";
 
 const OperationDetailsPage: NextPageWithLayout = () => {
   const router = useRouter();
@@ -40,7 +41,7 @@ const OperationDetailsPage: NextPageWithLayout = () => {
   const syncId = useId();
 
   const graphContext = useContext(GraphContext);
-  const columnFilters = useOperationFilterState();
+  const columnFilters = useFilterState();
 
   const { data, isLoading, error, refetch} = useQuery(
     getOperationDetailMetricsPage,

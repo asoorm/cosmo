@@ -13,6 +13,8 @@ import { OperationsTable } from "@/components/operations/operations-table";
 import { OperationsPageToolbar } from "@/components/operations/operations-page-toolbar";
 import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
 import { useSortingState } from "@/components/operations/use-sorting-state";
+import { useOperationsFilters } from "@/components/operations/use-operations-filters";
+import { useFilterState, transformFiltersForAPI } from "@/components/operations/use-filter-state";
 import { NextPageWithLayout } from "@/lib/page";
 import { useQuery } from "@connectrpc/connect-query";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
@@ -31,6 +33,7 @@ const OperationsPage: NextPageWithLayout = () => {
     ? parseInt(router.query.page as string)
     : 1;
   const limit = Number.parseInt((router.query.pageSize as string) || "10");
+  const columnFilters = useFilterState();
 
   const { data, isLoading, error, refetch } = useQuery(
     getOperationsPage,
@@ -47,11 +50,18 @@ const OperationsPage: NextPageWithLayout = () => {
             end: formatISO(dateRange.end),
           }
         : undefined,
+      filters: transformFiltersForAPI(columnFilters),
     },
     {
       placeholderData: (prev) => prev,
     },
   );
+
+  const { filters, columnFilters: parsedColumnFilters, resetFilters } =
+    useOperationsFilters(
+      data?.allOperationNames ?? [],
+      data?.allOperationTypes ?? [],
+    );
 
   if (isLoading) return <Loader fullscreen />;
 
@@ -81,21 +91,17 @@ const OperationsPage: NextPageWithLayout = () => {
     );
   }
 
-  if (data.operations.length === 0) {
-    return (
-      <EmptyState
-        icon={<ExclamationTriangleIcon />}
-        title="No operations found"
-        description="No operations have been recorded for this graph."
-      />
-    );
-  }
-
   const noOfPages = Math.ceil(data.count / limit);
 
   return (
     <div className="flex h-full flex-col gap-y-3">
-      <OperationsPageToolbar range={range} dateRange={dateRange} />
+      <OperationsPageToolbar
+        range={range}
+        dateRange={dateRange}
+        filters={filters}
+        selectedFilters={parsedColumnFilters}
+        onResetFilters={resetFilters}
+      />
       <OperationsTable
         operations={data.operations}
         sorting={sorting}

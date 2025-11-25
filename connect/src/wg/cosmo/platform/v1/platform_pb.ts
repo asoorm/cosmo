@@ -22846,6 +22846,11 @@ export class GetOperationsPageRequest extends Message<GetOperationsPageRequest> 
    */
   range?: number;
 
+  /**
+   * @generated from field: repeated wg.cosmo.platform.v1.AnalyticsFilter filters = 8;
+   */
+  filters: AnalyticsFilter[] = [];
+
   constructor(data?: PartialMessage<GetOperationsPageRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -22861,6 +22866,7 @@ export class GetOperationsPageRequest extends Message<GetOperationsPageRequest> 
     { no: 5, name: "sorting", kind: "message", T: Sort, repeated: true },
     { no: 6, name: "dateRange", kind: "message", T: DateRange },
     { no: 7, name: "range", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 8, name: "filters", kind: "message", T: AnalyticsFilter, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationsPageRequest {
@@ -22899,6 +22905,16 @@ export class GetOperationsPageResponse extends Message<GetOperationsPageResponse
    */
   count = 0;
 
+  /**
+   * @generated from field: repeated string allOperationNames = 4;
+   */
+  allOperationNames: string[] = [];
+
+  /**
+   * @generated from field: repeated string allOperationTypes = 5;
+   */
+  allOperationTypes: string[] = [];
+
   constructor(data?: PartialMessage<GetOperationsPageResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -22910,6 +22926,8 @@ export class GetOperationsPageResponse extends Message<GetOperationsPageResponse
     { no: 1, name: "response", kind: "message", T: Response },
     { no: 2, name: "operations", kind: "message", T: OperationPageItem, repeated: true },
     { no: 3, name: "count", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 4, name: "allOperationNames", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 5, name: "allOperationTypes", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationsPageResponse {

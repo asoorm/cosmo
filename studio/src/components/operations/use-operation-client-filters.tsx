@@ -1,14 +1,13 @@
-import {
-  AnalyticsViewFilterOperator,
-  AnalyticsFilter as AnalyticsFilterProto,
-} from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
 import type { OperationClient } from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
-import { useCallback, useMemo } from "react";
-import { ColumnFiltersState } from "@tanstack/react-table";
+import { useMemo } from "react";
 import { AnalyticsFilter } from "@/components/analytics/filters";
-import { useRouter } from "next/router";
-import { useApplyParams } from "@/components/analytics/use-apply-params";
-import { isArray, isString } from "lodash";
+import {
+  useFilterState,
+  useFilterCallbacks,
+  transformFiltersForAPI,
+} from "./use-filter-state";
+
+export { transformFiltersForAPI };
 
 const getUniqueClientValues = (
   clients: OperationClient[],
@@ -28,92 +27,12 @@ const getUniqueClientValues = (
 };
 
 /**
- * Parse column filters from URL
- */
-export const useOperationFilterState = (): ColumnFiltersState => {
-  const router = useRouter();
-
-  return useMemo<ColumnFiltersState>(() => {
-    if (!router.isReady || !router.query.filterState) return [];
-
-    return JSON.parse(decodeURIComponent(router.query.filterState as string));
-  }, [router.isReady, router.query.filterState]);
-};
-
-/**
- * Normalize column filters for API
- */
-export const transformFiltersForAPI = (
-  columnFilters: ColumnFiltersState,
-): AnalyticsFilterProto[] => {
-  const apiFilters: AnalyticsFilterProto[] = [];
-
-  for (const filter of columnFilters) {
-    const { value } = filter;
-    if (!isArray(value)) {
-      continue;
-    }
-
-    for (const item of value) {
-      if (isString(item)) {
-        const parsed = JSON.parse(item);
-        apiFilters.push(
-          new AnalyticsFilterProto({
-            field: filter.id,
-            value: parsed.value,
-            operator: parsed.operator,
-          }),
-        );
-      }
-    }
-  }
-
-  return apiFilters;
-};
-
-/**
  * Manage filters for operations pages - reads state from URL, builds UI filters from allClients
  */
 export const useOperationClientFilters = (allClients: OperationClient[]) => {
-  const applyNewParams = useApplyParams();
-  const columnFilters = useOperationFilterState();
-
-  const findById = useCallback(
-    (id: OperationClient["name"] | OperationClient["version"]) =>
-      (columnFilters.find((f) => f.id === id)?.value as string[]) ?? [],
-    [columnFilters],
-  );
-
-  const onSelect = useCallback(
-    (
-      value: string[],
-      id: OperationClient["name"] | OperationClient["version"],
-    ) => {
-      const newFilters = columnFilters.filter((f) => f.id !== id);
-      if (value && value.length > 0) {
-        newFilters.push({ id, value });
-      }
-
-      const stringifiedFilters =
-        newFilters.length > 0 ? JSON.stringify(newFilters) : null;
-      applyNewParams({
-        filterState: stringifiedFilters,
-      });
-    },
-    [columnFilters, applyNewParams],
-  );
-
-  const buildOption = useCallback(
-    (value: OperationClient["name"] | OperationClient["version"]) => ({
-      label: value || "-",
-      value: JSON.stringify({
-        label: value || "-",
-        operator: AnalyticsViewFilterOperator.EQUALS,
-        value: value || "",
-      }),
-    }),
-    [],
-  );
+  const columnFilters = useFilterState();
+  const { findById, onSelect, buildOption, resetFilters } =
+    useFilterCallbacks(columnFilters);
 
   const filters = useMemo<AnalyticsFilter[]>(() => {
     const { names: clientNames, versions: clientVersions } =
@@ -143,12 +62,6 @@ export const useOperationClientFilters = (allClients: OperationClient[]) => {
 
     return result;
   }, [allClients, buildOption, findById, onSelect]);
-
-  const resetFilters = useCallback(() => {
-    applyNewParams({
-      filterState: null,
-    });
-  }, [applyNewParams]);
 
   return {
     filters,

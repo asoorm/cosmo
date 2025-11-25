@@ -21,6 +21,7 @@ export class OperationsViewRepository {
     sorting = [],
     range,
     dateRange,
+    filters = [],
   }: {
     organizationId: string;
     graphId: string;
@@ -29,8 +30,10 @@ export class OperationsViewRepository {
     sorting?: Sort[];
     range?: number;
     dateRange?: DateRange<string>;
+    filters?: AnalyticsFilter[];
   }) {
     const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
+    const filterClause = OperationsViewRepository.buildOperationsFilterClauses(filters);
 
     const query = `
       WITH
@@ -50,6 +53,7 @@ export class OperationsViewRepository {
         "Timestamp" >= startDate AND "Timestamp" <= endDate
         AND "OrganizationID" = '${organizationId}'
         AND "FederatedGraphID" = '${graphId}'
+        ${filterClause}
       GROUP BY
         "OperationHash",
         "OperationName",
@@ -76,6 +80,38 @@ export class OperationsViewRepository {
     return {
       count: operations[0]?.count ?? 0,
       operations,
+    };
+  }
+
+  /**
+   * Get all operation names and types for filter options
+   */
+  public async getAllOperationNamesAndTypes({ organizationId, graphId }: { organizationId: string; graphId: string }) {
+    const namesQuery = `
+      SELECT DISTINCT "OperationName" AS name
+      FROM ${this.client.database}.operation_request_metrics_5_30
+      WHERE "OrganizationID" = '${organizationId}'
+        AND "FederatedGraphID" = '${graphId}'
+      ORDER BY name ASC
+      LIMIT 1000
+    `;
+
+    const typesQuery = `
+      SELECT DISTINCT "OperationType" AS type
+      FROM ${this.client.database}.operation_request_metrics_5_30
+      WHERE "OrganizationID" = '${organizationId}'
+        AND "FederatedGraphID" = '${graphId}'
+      ORDER BY type ASC
+    `;
+
+    const [nameRows, typeRows] = await Promise.all([
+      this.client.queryPromise<{ name: string }>(namesQuery),
+      this.client.queryPromise<{ type: string }>(typesQuery),
+    ]);
+
+    return {
+      allOperationNames: nameRows.map((row) => row.name),
+      allOperationTypes: typeRows.map((row) => row.type),
     };
   }
 
@@ -513,6 +549,36 @@ export class OperationsViewRepository {
     if (clientVersionFilters.length > 0) {
       const values = clientVersionFilters.map((f) => `'${f.value.replace(/'/g, "\\'")}'`).join(', ');
       clauses.push(`${prefix}"ClientVersion" IN (${values})`);
+    }
+
+    return clauses.length > 0 ? `AND ${clauses.join(' AND ')}` : '';
+  }
+
+  private static buildOperationsFilterClauses(filters: AnalyticsFilter[]): string {
+    const clauses: string[] = [];
+
+    const operationNameFilters = filters.filter(
+      (f) => f.field === 'operationName' && f.operator === AnalyticsViewFilterOperator.EQUALS,
+    );
+    const operationTypeFilters = filters.filter(
+      (f) => f.field === 'operationType' && f.operator === AnalyticsViewFilterOperator.EQUALS,
+    );
+    const hasErrorsFilters = filters.filter(
+      (f) => f.field === 'hasErrors' && f.operator === AnalyticsViewFilterOperator.EQUALS,
+    );
+
+    if (operationNameFilters.length > 0) {
+      const values = operationNameFilters.map((f) => `'${f.value.replace(/'/g, "\\'")}'`).join(', ');
+      clauses.push(`"OperationName" IN (${values})`);
+    }
+
+    if (operationTypeFilters.length > 0) {
+      const values = operationTypeFilters.map((f) => `'${f.value.replace(/'/g, "\\'")}'`).join(', ');
+      clauses.push(`"OperationType" IN (${values})`);
+    }
+
+    if (hasErrorsFilters.length > 0 && hasErrorsFilters[0].value === 'true') {
+      clauses.push(`"TotalErrors" > 0`);
     }
 
     return clauses.length > 0 ? `AND ${clauses.join(' AND ')}` : '';

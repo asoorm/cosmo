@@ -27,6 +27,8 @@ export function getOperationsPage(
         },
         operations: [],
         count: 0,
+        allOperationNames: [],
+        allOperationTypes: [],
       };
     }
 
@@ -43,6 +45,8 @@ export function getOperationsPage(
         },
         operations: [],
         count: 0,
+        allOperationNames: [],
+        allOperationTypes: [],
       };
     }
 
@@ -59,21 +63,30 @@ export function getOperationsPage(
     });
 
     const repo = new OperationsViewRepository(opts.chClient);
-    const view = await repo.getOperations({
-      organizationId: authContext.organizationId,
-      graphId: graph.id,
-      limit: req.limit,
-      offset: req.offset,
-      sorting: req.sorting,
-      range,
-      dateRange,
-    });
+
+    const [view, filterOptions] = await Promise.all([
+      repo.getOperations({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        limit: req.limit,
+        offset: req.offset,
+        sorting: req.sorting,
+        range,
+        dateRange,
+        filters: req.filters,
+      }),
+      repo.getAllOperationNamesAndTypes({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+      }),
+    ]);
 
     return {
       response: {
         code: EnumStatusCode.OK,
       },
       ...view,
+      ...filterOptions,
     };
   });
 }

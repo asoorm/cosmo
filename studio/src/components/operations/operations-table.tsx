@@ -41,7 +41,6 @@ const OperationsTableRow = ({
       operationId: id,
     };
 
-    // Keep only date-related params
     const dateQuery: typeof router.query = {
       organizationSlug: query.organizationSlug,
       namespace: query.namespace,

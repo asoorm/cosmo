@@ -2921,12 +2921,15 @@ message GetOperationsPageRequest {
   repeated Sort sorting = 5;
   DateRange dateRange = 6;
   optional int32 range = 7;
+  repeated AnalyticsFilter filters = 8;
 }
 
 message GetOperationsPageResponse {
   Response response = 1;
   repeated OperationPageItem operations = 2;
   int32 count = 3;
+  repeated string allOperationNames = 4;
+  repeated string allOperationTypes = 5;
 }
 
 message OperationDetailRequestMetric {
