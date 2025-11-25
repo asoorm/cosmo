@@ -138,9 +138,11 @@ export class OperationsDetailViewRepository {
       }>(topErrorClientQuery),
     ]);
 
+    const anyErrors = topErrorClientResult.some((client) => client.count > 0);
+
     return {
       topClients: topClientResult,
-      topErrorClients: topErrorClientResult,
+      topErrorClients: anyErrors ?  topErrorClientResult : [],
     };
   }
 

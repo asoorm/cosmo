@@ -121,8 +121,8 @@ export const ErrorPercentageCard = ({
                 }}
                 className="inline-flex rounded-md px-2 py-1 hover:bg-muted"
               >
-                Top {topClients.length} Error{" "}
-                {topClients.length === 1 ? "Client" : "Clients"}
+                Top {topErrorClients.length} Error{" "}
+                {topErrorClients.length === 1 ? "Client" : "Clients"}
                 <ChevronRightIcon className="h4 ml-1 w-4 transition-all group-hover:ml-2" />
               </Link>
             </h4>
