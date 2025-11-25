@@ -19,6 +19,7 @@ import {
   SortableTableHead,
   useSortableTableHeader,
 } from "./sortable-table-head";
+import { TruncatedCellTooltip } from "./truncated-cell-tooltip";
 
 const OperationsTableRow = ({
   children,
@@ -141,9 +142,11 @@ export const OperationsTable = ({
               operationHash={operation.hash}
               hasError={operation.hasErrors}
             >
-              <TableCell>{operation.name}</TableCell>
-              <TableCell>{operation.type}</TableCell>
-              <TableCell>
+              <TableCell className="truncate">
+                <TruncatedCellTooltip>{operation.name}</TruncatedCellTooltip>
+              </TableCell>
+              <TableCell className="truncate">{operation.type}</TableCell>
+              <TableCell className="truncate">
                 {formatDateTime(new Date(operation.timestamp))}
               </TableCell>
               <TableCell>{operation.totalRequestCount.toString()}</TableCell>

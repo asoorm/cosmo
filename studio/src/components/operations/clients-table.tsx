@@ -14,6 +14,7 @@ import {
   SortableTableHead,
   useSortableTableHeader,
 } from "./sortable-table-head";
+import { TruncatedCellTooltip } from "./truncated-cell-tooltip";
 
 export const ClientsTable = ({
   list,
@@ -68,12 +69,16 @@ export const ClientsTable = ({
             {list.map((operation) => (
               <TableRow
                 key={`${operation.clientName}-${operation.clientVersion}`}
-                className={cn({
+                className={cn("cursor-pointer hover:bg-secondary/30", {
                   "bg-destructive/10": operation.totalErrors > 0,
                 })}
               >
-                <TableCell>{operation.clientName}</TableCell>
-                <TableCell>{operation.clientVersion}</TableCell>
+                <TableCell className="truncate">
+                  <TruncatedCellTooltip>{operation.clientName}</TruncatedCellTooltip>
+                </TableCell>
+                <TableCell className="truncate">
+                  <TruncatedCellTooltip>{operation.clientVersion}</TruncatedCellTooltip>
+                </TableCell>
                 <TableCell>{operation.totalRequests}</TableCell>
                 <TableCell>{operation.totalErrors}</TableCell>
               </TableRow>
