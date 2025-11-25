@@ -63,15 +63,13 @@ export const OperationDetailToolbar = ({
             calendarDaysLimit={tracingRetention}
           />
           <AnalyticsFilters filters={filters} />
+          <AnalyticsSelectedFilters
+            filters={filters}
+            selectedFilters={selectedFilters}
+            onReset={onResetFilters}
+          />
         </div>
         <Spacer />
-      </div>
-      <div className="flex flex-row flex-wrap items-start gap-y-2">
-        <AnalyticsSelectedFilters
-          filters={filters}
-          selectedFilters={selectedFilters}
-          onReset={onResetFilters}
-        />
       </div>
     </div>
   );

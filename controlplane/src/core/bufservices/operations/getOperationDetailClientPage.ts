@@ -82,8 +82,6 @@ export function getOperationDetailClientPage(
         operationName: req.operationName,
         operationHash: req.operationHash,
         operationType: req.operationType,
-        range,
-        dateRange,
       }),
     ]);
 

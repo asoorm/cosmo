@@ -121,8 +121,6 @@ export function getOperationDetailMetricsPage(
         operationName: req.operationName,
         operationHash: req.operationHash,
         operationType: req.operationType,
-        range,
-        dateRange,
       }),
     ]);
 
