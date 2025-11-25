@@ -126,7 +126,7 @@ export const OperationsTable = ({
             />
             <SortableTableHead
               id="hasErrors"
-              label="Health"
+              label="Status"
               sorting={sorting}
               onClick={handleHeaderClick}
             />
