@@ -1,40 +1,123 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  AnalyticsViewFilterOperator,
+  AnalyticsFilter as AnalyticsFilterProto,
+} from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
+import type { OperationClient } from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
+import { useCallback, useMemo } from "react";
 import { ColumnFiltersState } from "@tanstack/react-table";
 import { AnalyticsFilter } from "@/components/analytics/filters";
-import { AnalyticsViewFilterOperator } from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
-import type { OperationClient } from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
 import { useRouter } from "next/router";
 import { useApplyParams } from "@/components/analytics/use-apply-params";
+import { isArray, isString } from "lodash";
 
-export const useOperationClientFilters = (
-  allClients: OperationClient[],
-) => {
+const getUniqueClientValues = (
+  clients: OperationClient[],
+): {
+  names: Set<string>;
+  versions: Set<string>;
+} => {
+  const names = new Set<string>();
+  const versions = new Set<string>();
+
+  clients.forEach((client) => {
+    names.add(client.name);
+    versions.add(client.version);
+  });
+
+  return { names, versions };
+};
+
+/**
+ * Parse column filters from URL
+ */
+export const useOperationFilterState = (): ColumnFiltersState => {
   const router = useRouter();
-  const applyNewParams = useApplyParams();
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
-  // Sync filters from URL on mount
-  useEffect(() => {
-    if (router.isReady && router.query.filterState) {
-      try {
-        const filterStateFromUrl = JSON.parse(
-          decodeURIComponent(router.query.filterState as string)
+  return useMemo<ColumnFiltersState>(() => {
+    if (!router.isReady || !router.query.filterState) return [];
+
+    return JSON.parse(decodeURIComponent(router.query.filterState as string));
+  }, [router.isReady, router.query.filterState]);
+};
+
+/**
+ * Normalize column filters for API
+ */
+export const transformFiltersForAPI = (
+  columnFilters: ColumnFiltersState,
+): AnalyticsFilterProto[] => {
+  const apiFilters: AnalyticsFilterProto[] = [];
+
+  for (const filter of columnFilters) {
+    const { value } = filter;
+    if (!isArray(value)) {
+      continue;
+    }
+
+    for (const item of value) {
+      if (isString(item)) {
+        const parsed = JSON.parse(item);
+        apiFilters.push(
+          new AnalyticsFilterProto({
+            field: filter.id,
+            value: parsed.value,
+            operator: parsed.operator,
+          }),
         );
-        setColumnFilters(filterStateFromUrl);
-      } catch (e) {
-        console.error("Failed to parse filterState from URL", e);
       }
     }
-  }, [router.isReady, router.query.filterState]);
+  }
+
+  return apiFilters;
+};
+
+/**
+ * Manage filters for operations pages - reads state from URL, builds UI filters from allClients
+ */
+export const useOperationClientFilters = (allClients: OperationClient[]) => {
+  const applyNewParams = useApplyParams();
+  const columnFilters = useOperationFilterState();
+
+  const findById = useCallback(
+    (id: OperationClient["name"] | OperationClient["version"]) =>
+      (columnFilters.find((f) => f.id === id)?.value as string[]) ?? [],
+    [columnFilters],
+  );
+
+  const onSelect = useCallback(
+    (
+      value: string[],
+      id: OperationClient["name"] | OperationClient["version"],
+    ) => {
+      const newFilters = columnFilters.filter((f) => f.id !== id);
+      if (value && value.length > 0) {
+        newFilters.push({ id, value });
+      }
+
+      const stringifiedFilters =
+        newFilters.length > 0 ? JSON.stringify(newFilters) : null;
+      applyNewParams({
+        filterState: stringifiedFilters,
+      });
+    },
+    [columnFilters, applyNewParams],
+  );
+
+  const buildOption = useCallback(
+    (value: OperationClient["name"] | OperationClient["version"]) => ({
+      label: value || "-",
+      value: JSON.stringify({
+        label: value || "-",
+        operator: AnalyticsViewFilterOperator.EQUALS,
+        value: value || "",
+      }),
+    }),
+    [],
+  );
 
   const filters = useMemo<AnalyticsFilter[]>(() => {
-    const clientNames = new Set<string>();
-    const clientVersions = new Set<string>();
-
-    allClients.forEach((client) => {
-      clientNames.add(client.name);
-      clientVersions.add(client.version);
-    });
+    const { names: clientNames, versions: clientVersions } =
+      getUniqueClientValues(allClients);
 
     const result: AnalyticsFilter[] = [];
 
@@ -42,32 +125,9 @@ export const useOperationClientFilters = (
       result.push({
         id: "clientName",
         title: "Client Name",
-        selectedOptions:
-          (columnFilters.find((f) => f.id === "clientName")?.value as string[]) ||
-          [],
-        onSelect: (value) => {
-          const newFilters = columnFilters.filter((f) => f.id !== "clientName");
-          if (value && value.length > 0) {
-            newFilters.push({ id: "clientName", value });
-          }
-          setColumnFilters(newFilters);
-
-          // Sync to URL
-          const stringifiedFilters = newFilters.length > 0
-            ? JSON.stringify(newFilters)
-            : null;
-          applyNewParams({
-            filterState: stringifiedFilters,
-          });
-        },
-        options: Array.from(clientNames).map((name) => ({
-          label: name || "-",
-          value: JSON.stringify({
-            label: name || "-",
-            operator: AnalyticsViewFilterOperator.EQUALS,
-            value: name || "",
-          }),
-        })),
+        selectedOptions: findById("clientName"),
+        onSelect: (value) => onSelect(value ?? [], "clientName"),
+        options: Array.from(clientNames).map((name) => buildOption(name)),
       });
     }
 
@@ -75,50 +135,24 @@ export const useOperationClientFilters = (
       result.push({
         id: "clientVersion",
         title: "Client Version",
-        selectedOptions:
-          (columnFilters.find((f) => f.id === "clientVersion")?.value as
-            | string[]
-            | undefined) || [],
-        onSelect: (value) => {
-          const newFilters = columnFilters.filter((f) => f.id !== "clientVersion");
-          if (value && value.length > 0) {
-            newFilters.push({ id: "clientVersion", value });
-          }
-          setColumnFilters(newFilters);
-
-          // Sync to URL
-          const stringifiedFilters = newFilters.length > 0
-            ? JSON.stringify(newFilters)
-            : null;
-          applyNewParams({
-            filterState: stringifiedFilters,
-          });
-        },
-        options: Array.from(clientVersions).map((version) => ({
-          label: version || "-",
-          value: JSON.stringify({
-            label: version || "-",
-            operator: AnalyticsViewFilterOperator.EQUALS,
-            value: version || "",
-          }),
-        })),
+        selectedOptions: findById("clientVersion"),
+        onSelect: (value) => onSelect(value ?? [], "clientVersion"),
+        options: Array.from(clientVersions).map((version) => buildOption(version)),
       });
     }
 
     return result;
-  }, [allClients, columnFilters, applyNewParams]);
+  }, [allClients, buildOption, findById, onSelect]);
 
-  const resetFilters = () => {
-    setColumnFilters([]);
+  const resetFilters = useCallback(() => {
     applyNewParams({
       filterState: null,
     });
-  };
+  }, [applyNewParams]);
 
   return {
     filters,
     columnFilters,
-    setColumnFilters,
     resetFilters,
   };
 };

@@ -23238,6 +23238,11 @@ export class GetOperationDetailMetricsPageRequest extends Message<GetOperationDe
    */
   range?: number;
 
+  /**
+   * @generated from field: repeated wg.cosmo.platform.v1.AnalyticsFilter filters = 8;
+   */
+  filters: AnalyticsFilter[] = [];
+
   constructor(data?: PartialMessage<GetOperationDetailMetricsPageRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -23253,6 +23258,7 @@ export class GetOperationDetailMetricsPageRequest extends Message<GetOperationDe
     { no: 5, name: "operationType", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 6, name: "dateRange", kind: "message", T: DateRange },
     { no: 7, name: "range", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 8, name: "filters", kind: "message", T: AnalyticsFilter, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationDetailMetricsPageRequest {
@@ -23449,6 +23455,11 @@ export class GetOperationDetailClientPageRequest extends Message<GetOperationDet
    */
   range?: number;
 
+  /**
+   * @generated from field: repeated wg.cosmo.platform.v1.AnalyticsFilter filters = 10;
+   */
+  filters: AnalyticsFilter[] = [];
+
   constructor(data?: PartialMessage<GetOperationDetailClientPageRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -23466,6 +23477,7 @@ export class GetOperationDetailClientPageRequest extends Message<GetOperationDet
     { no: 7, name: "offset", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 8, name: "dateRange", kind: "message", T: DateRange },
     { no: 9, name: "range", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 10, name: "filters", kind: "message", T: AnalyticsFilter, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationDetailClientPageRequest {

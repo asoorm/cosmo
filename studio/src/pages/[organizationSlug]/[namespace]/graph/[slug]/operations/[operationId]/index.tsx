@@ -24,7 +24,7 @@ import { DetailCard } from "@/components/operations/detail-card";
 import { LatencyCard } from "@/components/operations/latency-card";
 import { RequestsCard } from "@/components/operations/requests-card";
 import { ErrorPercentageCard } from "@/components/operations/error-percentage-card";
-import { useOperationClientFilters } from "@/components/operations/use-operation-client-filters";
+import { useOperationClientFilters, useOperationFilterState, transformFiltersForAPI } from "@/components/operations/use-operation-client-filters";
 
 const OperationDetailsPage: NextPageWithLayout = () => {
   const router = useRouter();
@@ -40,7 +40,9 @@ const OperationDetailsPage: NextPageWithLayout = () => {
   const syncId = useId();
 
   const graphContext = useContext(GraphContext);
-  const { data, isLoading, error, refetch } = useQuery(
+  const columnFilters = useOperationFilterState();
+
+  const { data, isLoading, error, refetch} = useQuery(
     getOperationDetailMetricsPage,
     {
       namespace: graphContext?.graph?.namespace,
@@ -55,13 +57,15 @@ const OperationDetailsPage: NextPageWithLayout = () => {
           start: formatISO(dateRange.start),
           end: formatISO(dateRange.end),
         },
+      filters: transformFiltersForAPI(columnFilters),
     },
     {
       placeholderData: (prev) => prev,
+      enabled: !!graphContext?.graph,
     },
   );
 
-  const { filters, columnFilters, resetFilters } = useOperationClientFilters(
+  const { filters, resetFilters } = useOperationClientFilters(
     data?.allClients || [],
   );
 

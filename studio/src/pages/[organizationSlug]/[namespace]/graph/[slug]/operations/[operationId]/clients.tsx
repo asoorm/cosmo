@@ -14,7 +14,7 @@ import { OperationsToolbar } from "@/components/operations/operations-toolbar";
 import { GraphContext } from "@/components/layout/graph-layout";
 import { OperationDetailToolbar } from "@/components/operations/operation-detail-toolbar";
 import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
-import { useOperationClientFilters } from "@/components/operations/use-operation-client-filters";
+import { useOperationClientFilters, useOperationFilterState, transformFiltersForAPI } from "@/components/operations/use-operation-client-filters";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
@@ -41,6 +41,7 @@ const OperationClientsPage: NextPageWithLayout = () => {
     ? parseInt(router.query.page as string)
     : 1;
   const limit = Number.parseInt((router.query.pageSize as string) || "10");
+  const columnFilters = useOperationFilterState();
 
   const { data, isLoading, error, refetch } = useQuery(
     getOperationDetailClientPage,
@@ -59,13 +60,14 @@ const OperationClientsPage: NextPageWithLayout = () => {
           end: formatISO(dateRange.end),
         }
         : undefined,
+      filters: transformFiltersForAPI(columnFilters),
     },
     {
       placeholderData: (prev) => prev,
     },
   );
 
-  const { filters, columnFilters, resetFilters } =
+  const { filters, resetFilters } =
     useOperationClientFilters(data?.allClients || []);
 
   if (isLoading) return <Loader fullscreen />;

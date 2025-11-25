@@ -2969,6 +2969,7 @@ message GetOperationDetailMetricsPageRequest {
   string operationType = 5;
   DateRange dateRange = 6;
   optional int32 range = 7;
+  repeated AnalyticsFilter filters = 8;
 }
 
 message GetOperationDetailMetricsPageResponse {
@@ -2998,6 +2999,7 @@ message GetOperationDetailClientPageRequest {
   int32 offset = 7;
   DateRange dateRange = 8;
   optional int32 range = 9;
+  repeated AnalyticsFilter filters = 10;
 }
 
 message GetOperationDetailClientPageResponse {

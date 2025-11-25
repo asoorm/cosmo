@@ -1,3 +1,4 @@
+import { AnalyticsFilter, AnalyticsViewFilterOperator } from '@wundergraph/cosmo-connect/dist/platform/v1/platform_pb';
 import { DateRange } from '../../types/index.js';
 import { ClickHouseClient } from '../clickhouse/index.js';
 import { isoDateRangeToTimestamps, getDateRange } from './analytics/util.js';
@@ -109,6 +110,7 @@ export class OperationsViewRepository {
     operationType,
     range,
     dateRange,
+    filters = [],
   }: {
     organizationId: string;
     graphId: string;
@@ -117,11 +119,13 @@ export class OperationsViewRepository {
     operationType: string;
     range?: number;
     dateRange?: DateRange<string>;
+    filters?: AnalyticsFilter[];
   }) {
     const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
+    const filterClause = OperationsViewRepository.buildClientFilterClauses(filters);
 
     const subQuery = `
-      WITH 
+      WITH
         toDateTime('${start}') AS startDate,
         toDateTime('${end}') AS endDate,
         clients AS (
@@ -139,6 +143,7 @@ export class OperationsViewRepository {
             AND oprm."OperationHash" = '${operationHash}'
             AND oprm."OrganizationID" = '${organizationId}'
             AND oprm."FederatedGraphID" = '${graphId}'
+            ${filterClause}
           GROUP BY
             oprm."ClientName",
             oprm."ClientVersion"
@@ -244,6 +249,7 @@ export class OperationsViewRepository {
     offset,
     range,
     dateRange,
+    filters = [],
   }: {
     organizationId: string;
     graphId: string;
@@ -254,8 +260,10 @@ export class OperationsViewRepository {
     offset: number;
     range?: number;
     dateRange?: DateRange<string>;
+    filters?: AnalyticsFilter[];
   }) {
     const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
+    const filterClause = OperationsViewRepository.buildClientFilterClauses(filters);
 
     const query = `
       WITH
@@ -276,6 +284,7 @@ export class OperationsViewRepository {
         AND "OperationHash" = '${operationHash}'
         AND "OrganizationID" = '${organizationId}'
         AND "FederatedGraphID" = '${graphId}'
+        ${filterClause}
       GROUP BY
         "ClientName",
         "ClientVersion"
@@ -466,5 +475,29 @@ export class OperationsViewRepository {
     const [start, end] = getDateRange(parsedDateRange);
 
     return { start, end };
+  }
+
+  private static buildClientFilterClauses(filters: AnalyticsFilter[], tableAlias?: string): string {
+    const clauses: string[] = [];
+    const prefix = tableAlias ? `${tableAlias}.` : '';
+
+    const clientNameFilters = filters.filter(
+      (f) => f.field === 'clientName' && f.operator === AnalyticsViewFilterOperator.EQUALS,
+    );
+    const clientVersionFilters = filters.filter(
+      (f) => f.field === 'clientVersion' && f.operator === AnalyticsViewFilterOperator.EQUALS,
+    );
+
+    if (clientNameFilters.length > 0) {
+      const values = clientNameFilters.map((f) => `'${f.value.replace(/'/g, "\\'")}'`).join(', ');
+      clauses.push(`${prefix}"ClientName" IN (${values})`);
+    }
+
+    if (clientVersionFilters.length > 0) {
+      const values = clientVersionFilters.map((f) => `'${f.value.replace(/'/g, "\\'")}'`).join(', ');
+      clauses.push(`${prefix}"ClientVersion" IN (${values})`);
+    }
+
+    return clauses.length > 0 ? `AND ${clauses.join(' AND ')}` : '';
   }
 }

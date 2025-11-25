@@ -95,6 +95,7 @@ export function getOperationDetailMetricsPage(
         operationType: req.operationType,
         range,
         dateRange,
+        filters: req.filters,
       }),
       repo.getRequestsForOperationByNameHashType({
         organizationId: authContext.organizationId,
