@@ -5,6 +5,7 @@ import {
   formatISO,
   subHours,
 } from "date-fns";
+import { DateRange, Range } from "@/components/date-picker-with-range";
 import { formatDateTime } from "./format-date";
 
 export const dateFormatter = (tick: number, utc: boolean) =>
@@ -183,4 +184,8 @@ export const createDateRange = (range: number) => {
     start: subHours(new Date(), range),
     end: new Date(),
   };
+};
+
+export const createRangeFromDateRange = (dateRange?: DateRange, range?: Range | null) => {
+  return (dateRange && dateRange.end ? differenceInHours(dateRange.end, dateRange.start) : range) ?? 24;
 };

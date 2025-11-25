@@ -25,7 +25,7 @@ import {
   formatMetric,
   formatPercentMetric,
 } from "@/lib/format-metric";
-import { useChartData } from "@/lib/insights-helpers";
+import { useChartData, createRangeFromDateRange } from "@/lib/insights-helpers";
 import { cn } from "@/lib/utils";
 import {
   ChevronRightIcon,
@@ -74,7 +74,7 @@ export const getInfoTip = (range?: number) => {
 
 const useTimeRange = () => {
   const { range, dateRange } = useAnalyticsQueryState();
-  return (dateRange ? differenceInHours(dateRange.end, dateRange.start) : range) ?? 24;
+  return createRangeFromDateRange(dateRange, range);
 }
 
 const useSelectedFilters = () => {

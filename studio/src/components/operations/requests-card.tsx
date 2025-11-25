@@ -1,6 +1,5 @@
 import type { OperationDetailRequestMetrics } from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
-import { getInfoTip } from "../analytics/metrics";
-import type { Range } from "../date-picker-with-range";
+import type { DateRange, Range } from "../date-picker-with-range";
 import { InfoTooltip } from "../info-tooltip";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { RequestsChart } from "./requests-chart";
@@ -9,10 +8,12 @@ import { formatRequestMetricsTooltip } from "./utils";
 export const RequestsCard = ({
   requestMetrics,
   range,
+  dateRange,
   syncId,
 }: {
   requestMetrics?: OperationDetailRequestMetrics;
   range?: Range;
+  dateRange?: DateRange;
   syncId: string;
 }) => (
   <Card className="bg-transparent">
@@ -28,7 +29,12 @@ export const RequestsCard = ({
       </div>
     </CardHeader>
     <CardContent className="h-48 border-b pb-2">
-      <RequestsChart data={requestMetrics?.requests || []} syncId={syncId} />
+      <RequestsChart
+        series={requestMetrics?.requests || []}
+        syncId={syncId}
+        dateRange={dateRange}
+        range={range}
+      />
     </CardContent>
   </Card>
 );

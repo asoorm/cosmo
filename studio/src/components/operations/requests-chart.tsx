@@ -1,25 +1,30 @@
 import {
   AreaChart,
   Area,
+  Legend,
   ResponsiveContainer,
   XAxis,
   YAxis,
   Tooltip,
 } from "recharts";
+import { useChartData, createRangeFromDateRange } from "@/lib/insights-helpers";
 import { formatDateTime } from "@/lib/format-date";
+import { formatMetric } from "@/lib/format-metric";
 import { useId } from "react";
-
-const tickFormatter = (tick: number) =>
-  tick === 0 || tick % 1 != 0 ? "" : `${tick}`;
+import type { Range, DateRange } from "../date-picker-with-range";
 
 export const RequestsChart = ({
-  data,
+  series,
   syncId,
+  dateRange,
+  range,
 }: {
-  data: { timestamp: string; requests: number; errors: number }[];
+  series: { timestamp: string; requests: number; errors: number }[];
   syncId: string;
+  dateRange?: DateRange;
+  range?: Range;
 }) => {
-  const chartData = data.map(({ timestamp, ...rest }) => {
+  const chartData = series.map(({ timestamp, ...rest }) => {
     const isoTimestamp = timestamp.replace(" ", "T") + "Z";
     const timestampMs = new Date(isoTimestamp).getTime();
 
@@ -28,15 +33,17 @@ export const RequestsChart = ({
       timestamp: timestampMs,
     };
   });
-  const timestamps = chartData.map((d) => d.timestamp);
-  const minTimestamp = Math.min(...timestamps);
-  const maxTimestamp = Math.max(...timestamps);
+
+  const { data, ticks, domain, timeFormatter } = useChartData(
+    createRangeFromDateRange(dateRange, range),
+    chartData,
+  );
   const id = useId();
 
   return (
     <ResponsiveContainer width="99%" height="100%">
       <AreaChart
-        data={chartData}
+        data={data}
         margin={{ top: 8, right: 8, bottom: 8, left: 0 }}
         syncId={syncId}
       >
@@ -70,17 +77,23 @@ export const RequestsChart = ({
         <XAxis
           dataKey="timestamp"
           type="number"
-          domain={[minTimestamp, maxTimestamp]}
+          domain={domain}
+          ticks={ticks}
           tick={{ fill: "hsl(var(--muted-foreground))", fontSize: "13px" }}
-          tickFormatter={(value) => formatDateTime(value)}
+          tickFormatter={timeFormatter}
           axisLine={false}
           tickCount={5}
         />
         <YAxis
           tick={{ fill: "hsl(var(--muted-foreground))", fontSize: "13px" }}
-          tickFormatter={tickFormatter}
+          tickFormatter={formatMetric}
           axisLine={false}
           tickLine={false}
+        />
+        <Legend
+          verticalAlign="top"
+          align="right"
+          wrapperStyle={{ fontSize: "13px", marginTop: "-10px" }}
         />
         <Tooltip
           wrapperClassName="rounded-md border !border-popover !bg-popover/60 p-2 text-sm shadow-md outline-0 backdrop-blur-lg"
