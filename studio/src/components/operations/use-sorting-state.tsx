@@ -3,6 +3,20 @@ import { useRouter } from "next/router";
 import { useCallback, useEffect, useState } from "react";
 
 /**
+ * Convert sorting state to URL query params
+ */
+export const createSortingState = (sorting: SortingState): { sort?: string; sortDir?: string } => {
+  if (sorting.length === 0) {
+    return {};
+  }
+
+  return {
+    sort: sorting[0].id,
+    sortDir: sorting[0].desc ? "desc" : "asc",
+  };
+};
+
+/**
  * Manage & sync URL state for simple sorting
  */
 export const useSortingState = (defaultSort: SortingState) => {

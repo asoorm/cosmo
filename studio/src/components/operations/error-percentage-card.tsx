@@ -11,6 +11,7 @@ import { formatPercentMetric } from "@/lib/format-metric";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { createFilterState } from "../analytics/constructAnalyticsTableQueryState";
+import { createSortingState } from "./use-sorting-state";
 import type { Range } from "../date-picker-with-range";
 import { ClientsChart } from "./clients-chart";
 
@@ -85,6 +86,7 @@ export const ErrorPercentageCard = ({
                     slug: router.query.slug,
                     range,
                     dateRange: router.query.dateRange ?? undefined,
+                    ...createSortingState([{ id: "totalRequests", desc: true }]),
                     ...router.query,
                   },
                 }}
@@ -113,6 +115,7 @@ export const ErrorPercentageCard = ({
                     slug: router.query.slug,
                     range,
                     dateRange: router.query.dateRange ?? undefined,
+                    ...createSortingState([{ id: "totalErrors", desc: true }]),
                     ...router.query,
                   },
                 }}

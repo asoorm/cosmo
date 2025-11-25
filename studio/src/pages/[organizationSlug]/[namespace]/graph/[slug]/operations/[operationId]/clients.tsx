@@ -25,7 +25,7 @@ import Link from "next/link";
 import { useContext } from "react";
 
 const DEFAULT_CLIENTS_TABLE_SORT = [
-  { id: "totalRequests", desc: true },
+  { id: "clientName", desc: false },
 ]
 
 const OperationClientsPage: NextPageWithLayout = () => {
