@@ -10,15 +10,19 @@ import { Loader } from "@/components/ui/loader";
 import { Pagination } from "@/components/ui/pagination";
 import { GraphContext } from "@/components/layout/graph-layout";
 import { OperationsTable } from "@/components/operations/operations-table";
+import { useSortingState } from "@/components/operations/use-sorting-state";
 import { NextPageWithLayout } from "@/lib/page";
 import { useQuery } from "@connectrpc/connect-query";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/router";
 import { useContext } from "react";
 
+const DEFAULT_OPERATIONS_TABLE_SORT = [{ id: "timestamp", desc: true }];
+
 const OperationsPage: NextPageWithLayout = () => {
   const router = useRouter();
   const graphContext = useContext(GraphContext);
+  const { sorting, setSorting } = useSortingState(DEFAULT_OPERATIONS_TABLE_SORT);
   const pageNumber = router.query.page
     ? parseInt(router.query.page as string)
     : 1;
@@ -31,6 +35,7 @@ const OperationsPage: NextPageWithLayout = () => {
       federatedGraphName: graphContext?.graph?.name,
       limit: limit > 50 ? 50 : limit,
       offset: (pageNumber - 1) * limit,
+      sorting,
     },
     {
       placeholderData: (prev) => prev,
@@ -79,7 +84,11 @@ const OperationsPage: NextPageWithLayout = () => {
 
   return (
     <div className="flex h-full flex-col gap-y-3">
-      <OperationsTable operations={data.operations} />
+      <OperationsTable
+        operations={data.operations}
+        sorting={sorting}
+        setSorting={setSorting}
+      />
       <Pagination limit={limit} noOfPages={noOfPages} pageNumber={pageNumber} />
     </div>
   );

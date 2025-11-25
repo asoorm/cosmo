@@ -51,6 +51,7 @@ export function getOperationsPage(
       graphId: graph.id,
       limit: req.limit,
       offset: req.offset,
+      sorting: req.sorting,
     });
 
     return {

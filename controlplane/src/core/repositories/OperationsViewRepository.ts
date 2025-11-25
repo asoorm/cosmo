@@ -1,4 +1,8 @@
-import { AnalyticsFilter, AnalyticsViewFilterOperator, Sort } from '@wundergraph/cosmo-connect/dist/platform/v1/platform_pb';
+import {
+  AnalyticsFilter,
+  AnalyticsViewFilterOperator,
+  Sort,
+} from '@wundergraph/cosmo-connect/dist/platform/v1/platform_pb';
 import { DateRange } from '../../types/index.js';
 import { ClickHouseClient } from '../clickhouse/index.js';
 import { isoDateRangeToTimestamps, getDateRange } from './analytics/util.js';
@@ -14,11 +18,13 @@ export class OperationsViewRepository {
     graphId,
     limit,
     offset,
+    sorting = [],
   }: {
     organizationId: string;
     graphId: string;
     limit: number;
     offset: number;
+    sorting?: Sort[];
   }) {
     const query = `
       SELECT
@@ -39,7 +45,7 @@ export class OperationsViewRepository {
         "OperationName",
         "OperationType"
       ORDER BY
-        timestamp DESC
+        ${OperationsViewRepository.buildOperationsOrderByClause(sorting)}
       LIMIT ${limit} OFFSET ${offset}
     `;
 
@@ -515,7 +521,28 @@ export class OperationsViewRepository {
     };
 
     return sorting
-      .map(s => {
+      .map((s) => {
+        const column = columnMap[s.id] || s.id;
+        return `${column} ${s.desc ? 'DESC' : 'ASC'}`;
+      })
+      .join(', ');
+  }
+
+  private static buildOperationsOrderByClause(sorting: Sort[], defaultSort = 'timestamp DESC'): string {
+    if (sorting.length === 0) {
+      return defaultSort;
+    }
+
+    const columnMap: Record<string, string> = {
+      name: 'name',
+      type: 'type',
+      timestamp: 'timestamp',
+      totalRequestCount: 'totalRequestCount',
+      hasErrors: 'hasErrors',
+    };
+
+    return sorting
+      .map((s) => {
         const column = columnMap[s.id] || s.id;
         return `${column} ${s.desc ? 'DESC' : 'ASC'}`;
       })

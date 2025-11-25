@@ -22831,6 +22831,11 @@ export class GetOperationsPageRequest extends Message<GetOperationsPageRequest> 
    */
   offset = 0;
 
+  /**
+   * @generated from field: repeated wg.cosmo.platform.v1.Sort sorting = 5;
+   */
+  sorting: Sort[] = [];
+
   constructor(data?: PartialMessage<GetOperationsPageRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -22843,6 +22848,7 @@ export class GetOperationsPageRequest extends Message<GetOperationsPageRequest> 
     { no: 2, name: "federatedGraphName", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "limit", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 4, name: "offset", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 5, name: "sorting", kind: "message", T: Sort, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationsPageRequest {

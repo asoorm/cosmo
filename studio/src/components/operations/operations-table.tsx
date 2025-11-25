@@ -14,6 +14,8 @@ import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/router";
 import type { ReactNode } from "react";
 import { HiOutlineCheck } from "react-icons/hi2";
+import type { SortingState } from "@tanstack/react-table";
+import { SortableTableHead, useSortableTableHeader } from "./sortable-table-head";
 
 const OperationsTableRow = ({
   children,
@@ -65,19 +67,25 @@ const OperationsStatusTableCell = ({ hasError }: { hasError: boolean }) => {
 
 export const OperationsTable = ({
   operations,
+  sorting,
+  setSorting,
 }: {
   operations: OperationPageItem[];
+  sorting: SortingState;
+  setSorting: (sort: SortingState) => void;
 }) => {
+  const { handleHeaderClick } = useSortableTableHeader(sorting, setSorting);
+
   return (
     <TableWrapper>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead>Last Called</TableHead>
-            <TableHead>Requests</TableHead>
-            <TableHead>Health</TableHead>
+            <SortableTableHead id="name" label="Name" sorting={sorting} onClick={handleHeaderClick} />
+            <SortableTableHead id="type" label="Type" sorting={sorting} onClick={handleHeaderClick} />
+            <SortableTableHead id="timestamp" label="Last Called" sorting={sorting} onClick={handleHeaderClick} />
+            <SortableTableHead id="totalRequestCount" label="Requests" sorting={sorting} onClick={handleHeaderClick} />
+            <SortableTableHead id="hasErrors" label="Health" sorting={sorting} onClick={handleHeaderClick} />
           </TableRow>
         </TableHeader>
         <TableBody>

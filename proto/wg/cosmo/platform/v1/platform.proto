@@ -2918,6 +2918,7 @@ message GetOperationsPageRequest {
   string federatedGraphName = 2;
   int32 limit = 3;
   int32 offset = 4;
+  repeated Sort sorting = 5;
 }
 
 message GetOperationsPageResponse {
