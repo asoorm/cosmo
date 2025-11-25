@@ -19,14 +19,23 @@ export class OperationsViewRepository {
     limit,
     offset,
     sorting = [],
+    range,
+    dateRange,
   }: {
     organizationId: string;
     graphId: string;
     limit: number;
     offset: number;
     sorting?: Sort[];
+    range?: number;
+    dateRange?: DateRange<string>;
   }) {
+    const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
+
     const query = `
+      WITH
+        toDateTime('${start}') AS startDate,
+        toDateTime('${end}') AS endDate
       SELECT
         "OperationHash" AS hash,
         "OperationName" AS name,
@@ -34,11 +43,12 @@ export class OperationsViewRepository {
         max("Timestamp") AS timestamp,
         toInt32(sum("TotalRequests")) as totalRequestCount,
         IF(sum("TotalErrors") > 0, true, false) as hasErrors,
-        count("OperationHash") OVER () AS count 
+        count("OperationHash") OVER () AS count
       FROM
         ${this.client.database}.operation_request_metrics_5_30
       WHERE
-        "OrganizationID" = '${organizationId}'
+        "Timestamp" >= startDate AND "Timestamp" <= endDate
+        AND "OrganizationID" = '${organizationId}'
         AND "FederatedGraphID" = '${graphId}'
       GROUP BY
         "OperationHash",

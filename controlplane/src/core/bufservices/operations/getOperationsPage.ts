@@ -8,8 +8,9 @@ import {
 } from '@wundergraph/cosmo-connect/dist/platform/v1/platform_pb';
 import type { RouterOptions } from '../../routes.js';
 import { FederatedGraphRepository } from '../../repositories/FederatedGraphRepository.js';
+import { OrganizationRepository } from '../../repositories/OrganizationRepository.js';
 import { OperationsViewRepository } from '../../repositories/OperationsViewRepository.js';
-import { enrichLogger, getLogger, handleError } from '../../util.js';
+import { enrichLogger, getLogger, handleError, validateDateRanges } from '../../util.js';
 
 export function getOperationsPage(
   opts: RouterOptions,
@@ -45,6 +46,18 @@ export function getOperationsPage(
       };
     }
 
+    const orgRepo = new OrganizationRepository(logger, opts.db, opts.billingDefaultPlanId);
+    const analyticsRetention = await orgRepo.getFeature({
+      organizationId: authContext.organizationId,
+      featureId: 'analytics-retention',
+    });
+
+    const { range, dateRange } = validateDateRanges({
+      limit: analyticsRetention?.limit ?? 7,
+      range: req.range,
+      dateRange: req.dateRange,
+    });
+
     const repo = new OperationsViewRepository(opts.chClient);
     const view = await repo.getOperations({
       organizationId: authContext.organizationId,
@@ -52,6 +65,8 @@ export function getOperationsPage(
       limit: req.limit,
       offset: req.offset,
       sorting: req.sorting,
+      range,
+      dateRange,
     });
 
     return {

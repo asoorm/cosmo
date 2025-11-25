@@ -36,9 +36,25 @@ const OperationsTableRow = ({
   );
 
   const handleRowClick = () => {
-    const route = `${router.asPath.split("?")[0]}/${id}`;
+    const query: typeof router.query = {
+      ...router.query,
+      operationId: id,
+    };
 
-    router.push(route);
+    // Keep only date-related params
+    const dateQuery: typeof router.query = {
+      organizationSlug: query.organizationSlug,
+      namespace: query.namespace,
+      slug: query.slug,
+      operationId: id,
+    };
+    if (query.range) dateQuery.range = query.range;
+    if (query.dateRange) dateQuery.dateRange = query.dateRange;
+
+    router.push({
+      pathname: "/[organizationSlug]/[namespace]/graph/[slug]/operations/[operationId]",
+      query: dateQuery,
+    });
   };
 
   return (

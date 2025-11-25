@@ -10,10 +10,13 @@ import { Loader } from "@/components/ui/loader";
 import { Pagination } from "@/components/ui/pagination";
 import { GraphContext } from "@/components/layout/graph-layout";
 import { OperationsTable } from "@/components/operations/operations-table";
+import { OperationsPageToolbar } from "@/components/operations/operations-page-toolbar";
+import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
 import { useSortingState } from "@/components/operations/use-sorting-state";
 import { NextPageWithLayout } from "@/lib/page";
 import { useQuery } from "@connectrpc/connect-query";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { formatISO } from "date-fns";
 import { useRouter } from "next/router";
 import { useContext } from "react";
 
@@ -23,6 +26,7 @@ const OperationsPage: NextPageWithLayout = () => {
   const router = useRouter();
   const graphContext = useContext(GraphContext);
   const { sorting, setSorting } = useSortingState(DEFAULT_OPERATIONS_TABLE_SORT);
+  const { range, dateRange } = useOperationClientsState();
   const pageNumber = router.query.page
     ? parseInt(router.query.page as string)
     : 1;
@@ -36,6 +40,13 @@ const OperationsPage: NextPageWithLayout = () => {
       limit: limit > 50 ? 50 : limit,
       offset: (pageNumber - 1) * limit,
       sorting,
+      range: router.query.dateRange ? undefined : range,
+      dateRange: router.query.dateRange
+        ? {
+            start: formatISO(dateRange.start),
+            end: formatISO(dateRange.end),
+          }
+        : undefined,
     },
     {
       placeholderData: (prev) => prev,
@@ -84,6 +95,7 @@ const OperationsPage: NextPageWithLayout = () => {
 
   return (
     <div className="flex h-full flex-col gap-y-3">
+      <OperationsPageToolbar range={range} dateRange={dateRange} />
       <OperationsTable
         operations={data.operations}
         sorting={sorting}

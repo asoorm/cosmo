@@ -2919,6 +2919,8 @@ message GetOperationsPageRequest {
   int32 limit = 3;
   int32 offset = 4;
   repeated Sort sorting = 5;
+  DateRange dateRange = 6;
+  optional int32 range = 7;
 }
 
 message GetOperationsPageResponse {

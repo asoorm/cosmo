@@ -22836,6 +22836,16 @@ export class GetOperationsPageRequest extends Message<GetOperationsPageRequest> 
    */
   sorting: Sort[] = [];
 
+  /**
+   * @generated from field: wg.cosmo.platform.v1.DateRange dateRange = 6;
+   */
+  dateRange?: DateRange;
+
+  /**
+   * @generated from field: optional int32 range = 7;
+   */
+  range?: number;
+
   constructor(data?: PartialMessage<GetOperationsPageRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -22849,6 +22859,8 @@ export class GetOperationsPageRequest extends Message<GetOperationsPageRequest> 
     { no: 3, name: "limit", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 4, name: "offset", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
     { no: 5, name: "sorting", kind: "message", T: Sort, repeated: true },
+    { no: 6, name: "dateRange", kind: "message", T: DateRange },
+    { no: 7, name: "range", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationsPageRequest {
