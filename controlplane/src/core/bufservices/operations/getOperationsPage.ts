@@ -9,7 +9,7 @@ import {
 import type { RouterOptions } from '../../routes.js';
 import { FederatedGraphRepository } from '../../repositories/FederatedGraphRepository.js';
 import { OrganizationRepository } from '../../repositories/OrganizationRepository.js';
-import { OperationsViewRepository } from '../../repositories/OperationsViewRepository.js';
+import { OperationsViewRepository } from '../../repositories/operations/OperationsViewRepository.js';
 import { enrichLogger, getLogger, handleError, validateDateRanges } from '../../util.js';
 
 export function getOperationsPage(

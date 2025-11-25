@@ -8,7 +8,7 @@ import {
 } from '@wundergraph/cosmo-connect/dist/platform/v1/platform_pb';
 import type { RouterOptions } from '../../routes.js';
 import { FederatedGraphRepository } from '../../repositories/FederatedGraphRepository.js';
-import { OperationsViewRepository } from '../../repositories/OperationsViewRepository.js';
+import { OperationsDetailViewRepository } from '../../repositories/operations/OperationsDetailViewRepository.js';
 import { OrganizationRepository } from '../../repositories/OrganizationRepository.js';
 import { enrichLogger, getLogger, handleError, validateDateRanges } from '../../util.js';
 
@@ -62,7 +62,7 @@ export function getOperationDetailClientPage(
 
     console.log(`range: ${range}, dateRange: ${JSON.stringify(dateRange)}`);
 
-    const repo = new OperationsViewRepository(opts.chClient);
+    const repo = new OperationsDetailViewRepository(opts.chClient);
     const [view, allClients] = await Promise.all([
       repo.getOperationClientListByNameHashType({
         organizationId: authContext.organizationId,

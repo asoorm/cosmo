@@ -3,123 +3,17 @@ import {
   AnalyticsViewFilterOperator,
   Sort,
 } from '@wundergraph/cosmo-connect/dist/platform/v1/platform_pb';
-import { DateRange } from '../../types/index.js';
-import { ClickHouseClient } from '../clickhouse/index.js';
-import { isoDateRangeToTimestamps, getDateRange } from './analytics/util.js';
+import { DateRange } from '../../../types/index.js';
+import { ClickHouseClient } from '../../clickhouse/index.js';
+import { normalizeDateRange } from './util.js';
 
-export class OperationsViewRepository {
+export class OperationsDetailViewRepository {
   constructor(private client: ClickHouseClient) {}
 
   /**
-   * Get operations page data
-   */
-  public async getOperations({
-    organizationId,
-    graphId,
-    limit,
-    offset,
-    sorting = [],
-    range,
-    dateRange,
-    filters = [],
-  }: {
-    organizationId: string;
-    graphId: string;
-    limit: number;
-    offset: number;
-    sorting?: Sort[];
-    range?: number;
-    dateRange?: DateRange<string>;
-    filters?: AnalyticsFilter[];
-  }) {
-    const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
-    const filterClause = OperationsViewRepository.buildOperationsFilterClauses(filters);
-
-    const query = `
-      WITH
-        toDateTime('${start}') AS startDate,
-        toDateTime('${end}') AS endDate
-      SELECT
-        oprm."OperationHash" AS hash,
-        oprm."OperationName" AS name,
-        oprm."OperationType" AS type,
-        max(traces."Timestamp") AS timestamp,
-        toInt32(sum(oprm."TotalRequests")) as totalRequestCount,
-        IF(sum(oprm."TotalErrors") > 0, true, false) as hasErrors,
-        count(oprm."OperationHash") OVER () AS count
-      FROM
-        ${this.client.database}.operation_request_metrics_5_30 AS oprm
-      INNER JOIN
-        ${this.client.database}.traces
-        ON oprm."OperationHash" = traces."OperationHash"
-        AND oprm."OperationName" = traces."OperationName"
-        AND oprm."OperationType" = traces."OperationType"
-      WHERE
-        traces."Timestamp" >= startDate AND traces."Timestamp" <= endDate
-        AND oprm."OrganizationID" = '${organizationId}'
-        AND oprm."FederatedGraphID" = '${graphId}'
-        ${filterClause}
-      GROUP BY
-        oprm."OperationHash",
-        oprm."OperationName",
-        oprm."OperationType"
-      ORDER BY
-        ${OperationsViewRepository.buildOperationsOrderByClause(sorting)}
-      LIMIT ${limit} OFFSET ${offset}
-    `;
-
-    const result = await this.client.queryPromise<{
-      hash: string;
-      name: string;
-      type: string;
-      timestamp: string;
-      totalRequestCount: number;
-      hasErrors: boolean;
-      count: number;
-    }>(query);
-    const operations = result.map((row) => ({
-      ...row,
-      count: Number(row.count),
-    }));
-
-    return {
-      count: operations[0]?.count ?? 0,
-      operations,
-    };
-  }
-
-  /**
-   * Get all operation names and types for filter options
-   */
-  public async getAllOperationNamesAndTypes({ organizationId, graphId }: { organizationId: string; graphId: string }) {
-    const namesQuery = `
-      SELECT DISTINCT "OperationName" AS name
-      FROM ${this.client.database}.operation_request_metrics_5_30
-      WHERE "OrganizationID" = '${organizationId}'
-        AND "FederatedGraphID" = '${graphId}'
-      ORDER BY name ASC
-      LIMIT 1000
-    `;
-
-    const typesQuery = `
-      SELECT DISTINCT "OperationType" AS type
-      FROM ${this.client.database}.operation_request_metrics_5_30
-      WHERE "OrganizationID" = '${organizationId}'
-        AND "FederatedGraphID" = '${graphId}'
-      ORDER BY type ASC
-    `;
-
-    const [nameRows, typeRows] = await Promise.all([
-      this.client.queryPromise<{ name: string }>(namesQuery),
-      this.client.queryPromise<{ type: string }>(typesQuery),
-    ]);
-
-    return {
-      allOperationNames: nameRows.map((row) => row.name),
-      allOperationTypes: typeRows.map((row) => row.type),
-    };
-  }
-
+  * Obtains basic metadata information regarding given operation
+  * identified by its name, hash and type.
+  */
   public async getOperationMetadataByNameHashType({
     organizationId,
     graphId,
@@ -159,6 +53,10 @@ export class OperationsViewRepository {
     };
   }
 
+  /**
+  * Obtains top clients by request and error count for given operation
+  * identified by its name, hash and type.
+  */
   public async getTopClientsForOperationByNameHashType({
     organizationId,
     graphId,
@@ -178,8 +76,8 @@ export class OperationsViewRepository {
     dateRange?: DateRange<string>;
     filters?: AnalyticsFilter[];
   }) {
-    const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
-    const filterClause = OperationsViewRepository.buildClientFilterClauses(filters);
+    const { start, end } = normalizeDateRange(dateRange, range);
+    const filterClause = OperationsDetailViewRepository.buildClientFilterClauses(filters);
 
     const subQuery = `
       WITH
@@ -246,6 +144,10 @@ export class OperationsViewRepository {
     };
   }
 
+  /**
+  * Obtains all clients with their versions for given operation
+  * identified by its name, hash and type.
+  */
   public async getAllClientsWithVersionsForOperationByNameHashType({
     organizationId,
     graphId,
@@ -286,6 +188,10 @@ export class OperationsViewRepository {
     };
   }
 
+  /**
+  * Obtains paginated list of clients for given operation
+  * identified by its name, hash and type.
+  */
   public async getOperationClientListByNameHashType({
     organizationId,
     graphId,
@@ -311,9 +217,9 @@ export class OperationsViewRepository {
     filters?: AnalyticsFilter[];
     sorting?: Sort[];
   }) {
-    const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
-    const filterClause = OperationsViewRepository.buildClientFilterClauses(filters);
-    const orderByClause = OperationsViewRepository.buildOrderByClause(sorting);
+    const { start, end } = normalizeDateRange(dateRange, range);
+    const filterClause = OperationsDetailViewRepository.buildClientFilterClauses(filters);
+    const orderByClause = OperationsDetailViewRepository.buildOrderByClause(sorting);
 
     const query = `
       WITH
@@ -362,6 +268,10 @@ export class OperationsViewRepository {
     };
   }
 
+  /**
+  * Filtered total request / error metrics for given operation
+  * identified by its name, hash and type.
+  */
   public async getRequestsForOperationByNameHashType({
     organizationId,
     graphId,
@@ -381,8 +291,8 @@ export class OperationsViewRepository {
     dateRange?: DateRange<string>;
     filters?: AnalyticsFilter[];
   }) {
-    const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
-    const filterClause = OperationsViewRepository.buildClientFilterClauses(filters, 'oprm');
+    const { start, end } = normalizeDateRange(dateRange, range);
+    const filterClause = OperationsDetailViewRepository.buildClientFilterClauses(filters, 'oprm');
 
     const metricsQuery = `
       WITH
@@ -457,6 +367,10 @@ export class OperationsViewRepository {
     };
   }
 
+  /**
+  * Filtered latency metrics for given operation
+  * identified by its name, hash and type.
+  */
   public async getLatencyForOperationByNameHashType({
     organizationId,
     graphId,
@@ -476,8 +390,8 @@ export class OperationsViewRepository {
     dateRange?: DateRange<string>;
     filters?: AnalyticsFilter[];
   }) {
-    const { start, end } = OperationsViewRepository.normalizeDateRange(dateRange, range);
-    const filterClause = OperationsViewRepository.buildClientFilterClauses(filters, 'oplm');
+    const { start, end } = normalizeDateRange(dateRange, range);
+    const filterClause = OperationsDetailViewRepository.buildClientFilterClauses(filters, 'oplm');
 
     const query = `
       WITH
@@ -516,25 +430,6 @@ export class OperationsViewRepository {
     };
   }
 
-  private static normalizeDateRange(
-    dateRange?: DateRange<string>,
-    range?: number,
-  ): {
-    start: number;
-    end: number;
-  } {
-    if (dateRange && dateRange.start > dateRange.end) {
-      const tmp = dateRange.start;
-      dateRange.start = dateRange.end;
-      dateRange.end = tmp;
-    }
-
-    const parsedDateRange = isoDateRangeToTimestamps(dateRange, range);
-    const [start, end] = getDateRange(parsedDateRange);
-
-    return { start, end };
-  }
-
   private static buildClientFilterClauses(filters: AnalyticsFilter[], tableAlias?: string): string {
     const clauses: string[] = [];
     const prefix = tableAlias ? `${tableAlias}.` : '';
@@ -559,36 +454,6 @@ export class OperationsViewRepository {
     return clauses.length > 0 ? `AND ${clauses.join(' AND ')}` : '';
   }
 
-  private static buildOperationsFilterClauses(filters: AnalyticsFilter[]): string {
-    const clauses: string[] = [];
-
-    const operationNameFilters = filters.filter(
-      (f) => f.field === 'operationName' && f.operator === AnalyticsViewFilterOperator.EQUALS,
-    );
-    const operationTypeFilters = filters.filter(
-      (f) => f.field === 'operationType' && f.operator === AnalyticsViewFilterOperator.EQUALS,
-    );
-    const hasErrorsFilters = filters.filter(
-      (f) => f.field === 'hasErrors' && f.operator === AnalyticsViewFilterOperator.EQUALS,
-    );
-
-    if (operationNameFilters.length > 0) {
-      const values = operationNameFilters.map((f) => `'${f.value.replace(/'/g, "\\'")}'`).join(', ');
-      clauses.push(`"OperationName" IN (${values})`);
-    }
-
-    if (operationTypeFilters.length > 0) {
-      const values = operationTypeFilters.map((f) => `'${f.value.replace(/'/g, "\\'")}'`).join(', ');
-      clauses.push(`"OperationType" IN (${values})`);
-    }
-
-    if (hasErrorsFilters.length > 0 && hasErrorsFilters[0].value === 'true') {
-      clauses.push(`"TotalErrors" > 0`);
-    }
-
-    return clauses.length > 0 ? `AND ${clauses.join(' AND ')}` : '';
-  }
-
   private static buildOrderByClause(sorting: Sort[], defaultSort = 'totalRequests DESC'): string {
     if (sorting.length === 0) {
       return defaultSort;
@@ -599,27 +464,6 @@ export class OperationsViewRepository {
       clientVersion: 'clientVersion',
       totalRequests: 'totalRequests',
       totalErrors: 'totalErrors',
-    };
-
-    return sorting
-      .map((s) => {
-        const column = columnMap[s.id] || s.id;
-        return `${column} ${s.desc ? 'DESC' : 'ASC'}`;
-      })
-      .join(', ');
-  }
-
-  private static buildOperationsOrderByClause(sorting: Sort[], defaultSort = 'timestamp DESC'): string {
-    if (sorting.length === 0) {
-      return defaultSort;
-    }
-
-    const columnMap: Record<string, string> = {
-      name: 'name',
-      type: 'type',
-      timestamp: 'timestamp',
-      totalRequestCount: 'totalRequestCount',
-      hasErrors: 'hasErrors',
     };
 
     return sorting
