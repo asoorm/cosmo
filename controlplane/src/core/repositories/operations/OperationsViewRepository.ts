@@ -40,29 +40,24 @@ export class OperationsViewRepository {
         toDateTime('${start}') AS startDate,
         toDateTime('${end}') AS endDate
       SELECT
-        oprm."OperationHash" AS hash,
-        oprm."OperationName" AS name,
-        oprm."OperationType" AS type,
-        max(traces."Timestamp") AS timestamp,
-        toInt32(sum(oprm."TotalRequests")) as totalRequestCount,
-        IF(sum(oprm."TotalErrors") > 0, true, false) as hasErrors,
-        count(oprm."OperationHash") OVER () AS count
+        "OperationHash" AS hash,
+        "OperationName" AS name,
+        "OperationType" AS type,
+        max("Timestamp") AS timestamp,
+        toInt32(sum("TotalRequests")) as totalRequestCount,
+        IF(sum("TotalErrors") > 0, true, false) as hasErrors,
+        count("OperationHash") OVER () AS count
       FROM
-        ${this.client.database}.operation_request_metrics_5_30 AS oprm
-      INNER JOIN
-        ${this.client.database}.traces
-        ON oprm."OperationHash" = traces."OperationHash"
-        AND oprm."OperationName" = traces."OperationName"
-        AND oprm."OperationType" = traces."OperationType"
+        ${this.client.database}.operation_request_metrics_5_30
       WHERE
-        traces."Timestamp" >= startDate AND traces."Timestamp" <= endDate
-        AND oprm."OrganizationID" = '${organizationId}'
-        AND oprm."FederatedGraphID" = '${graphId}'
+        "Timestamp" >= startDate AND "Timestamp" <= endDate
+        AND "OrganizationID" = '${organizationId}'
+        AND "FederatedGraphID" = '${graphId}'
         ${filterClause}
       GROUP BY
-        oprm."OperationHash",
-        oprm."OperationName",
-        oprm."OperationType"
+        "OperationHash",
+        "OperationName",
+        "OperationType"
       ORDER BY
         ${OperationsViewRepository.buildOperationsOrderByClause(sorting)}
       LIMIT ${limit} OFFSET ${offset}
