@@ -1,0 +1,9 @@
+{
+  "name": "AnonymousEmployeeAsList",
+  "type": "query",
+  "operation": "query ($id: Int!) {\n  employeeAsList(id: $id) {\n    details {\n      origin: nationality\n      firstname: forename\n      lastname: surname\n      surname\n    }\n    hobbies {\n      ... on Exercise {\n        sport:category\n      }\n      ... on Flying {\n        approved: planeModels\n        approvedInYears: yearsOfExperience\n      }\n    }\n    type: tag\n    role {\n      ... on Engineer {\n        engTitle: title\n        engDepts: departments\n        reports: employees {\n          id\n          details {\n            forename\n            surname          }\n        }\n      }\n      ... on Marketer {\n        title\n        reports: employees {\n          id\n          details {\n            forename\n            surname\n          }\n        }\n      }\n    }\n  }\n}\n",
+  "variables": {
+    "id": 1
+  },
+  "requiresAuth": false
+}
