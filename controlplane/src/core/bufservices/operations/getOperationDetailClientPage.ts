@@ -64,12 +64,10 @@ export function getOperationDetailClientPage(
 
     const repo = new OperationsDetailViewRepository(opts.chClient);
     const [view, allClients] = await Promise.all([
-      repo.getOperationClientListByNameHashType({
+      repo.getOperationClientListByHash({
         organizationId: authContext.organizationId,
         graphId: graph.id,
-        operationName: req.operationName,
         operationHash: req.operationHash,
-        operationType: req.operationType,
         limit: req.limit,
         offset: req.offset,
         range,
@@ -77,12 +75,10 @@ export function getOperationDetailClientPage(
         filters: req.filters,
         sorting: req.sorting,
       }),
-      repo.getAllClientsWithVersionsForOperationByNameHashType({
+      repo.getAllClientsWithVersionsForOperationByHash({
         organizationId: authContext.organizationId,
         graphId: graph.id,
-        operationName: req.operationName,
         operationHash: req.operationHash,
-        operationType: req.operationType,
       }),
     ]);
 

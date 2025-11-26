@@ -80,49 +80,39 @@ export function getOperationDetailMetricsPage(
 
     const repo = new OperationsDetailViewRepository(opts.chClient);
     const [metadata, topClients, requestMetrics, latencyMetrics, allClients] = await Promise.all([
-      repo.getOperationMetadataByNameHashType({
+      repo.getOperationMetadataByHash({
         organizationId: authContext.organizationId,
         graphId: graph.id,
-        operationName: req.operationName,
         operationHash: req.operationHash,
-        operationType: req.operationType,
       }),
-      repo.getTopClientsForOperationByNameHashType({
+      repo.getTopClientsForOperationByHash({
         organizationId: authContext.organizationId,
         graphId: graph.id,
-        operationName: req.operationName,
         operationHash: req.operationHash,
-        operationType: req.operationType,
         range,
         dateRange,
         filters: req.filters,
       }),
-      repo.getRequestsForOperationByNameHashType({
+      repo.getRequestsForOperationByHash({
         organizationId: authContext.organizationId,
         graphId: graph.id,
-        operationName: req.operationName,
         operationHash: req.operationHash,
-        operationType: req.operationType,
         range,
         dateRange,
         filters: req.filters,
       }),
-      repo.getLatencyForOperationByNameHashType({
+      repo.getLatencyForOperationByHash({
         organizationId: authContext.organizationId,
         graphId: graph.id,
-        operationName: req.operationName,
         operationHash: req.operationHash,
-        operationType: req.operationType,
         range,
         dateRange,
         filters: req.filters,
       }),
-      repo.getAllClientsWithVersionsForOperationByNameHashType({
+      repo.getAllClientsWithVersionsForOperationByHash({
         organizationId: authContext.organizationId,
         graphId: graph.id,
-        operationName: req.operationName,
         operationHash: req.operationHash,
-        operationType: req.operationType,
       }),
     ]);
 

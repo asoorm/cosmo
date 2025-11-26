@@ -14,7 +14,10 @@ import { OperationsToolbar } from "@/components/operations/operations-toolbar";
 import { GraphContext } from "@/components/layout/graph-layout";
 import { FiltersToolbar } from "@/components/operations/filters-toolbar";
 import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
-import { useOperationClientFilters, transformFiltersForAPI } from "@/components/operations/use-operation-client-filters";
+import {
+  useOperationClientFilters,
+  transformFiltersForAPI,
+} from "@/components/operations/use-operation-client-filters";
 import { useFilterState } from "@/components/operations/use-filter-state";
 import { useSortingState } from "@/components/operations/use-sorting-state";
 import { Button } from "@/components/ui/button";
@@ -25,15 +28,11 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { useContext } from "react";
 
-const DEFAULT_CLIENTS_TABLE_SORT = [
-  { id: "clientName", desc: false },
-]
+const DEFAULT_CLIENTS_TABLE_SORT = [{ id: "clientName", desc: false }];
 
 const OperationClientsPage: NextPageWithLayout = () => {
   const router = useRouter();
-  const [type, name, hash] = decodeURIComponent(
-    router.query.operationId as string,
-  ).split("-");
+  const hash = decodeURIComponent(router.query.operationId as string);
   const organizationSlug = useCurrentOrganization()?.slug;
   const slug = router.query.slug as string;
   const {
@@ -58,8 +57,6 @@ const OperationClientsPage: NextPageWithLayout = () => {
       limit: limit > 50 ? 50 : limit,
       offset: (pageNumber - 1) * limit,
       operationHash: hash,
-      operationName: name,
-      operationType: type,
       range: router.query.dateRange ? undefined : range,
       dateRange: router.query.dateRange
         ? {
@@ -75,8 +72,9 @@ const OperationClientsPage: NextPageWithLayout = () => {
     },
   );
 
-  const { filters, resetFilters } =
-    useOperationClientFilters(data?.allClients || []);
+  const { filters, resetFilters } = useOperationClientFilters(
+    data?.allClients || [],
+  ); 
 
   if (isLoading) return <Loader fullscreen />;
 
@@ -108,7 +106,7 @@ const OperationClientsPage: NextPageWithLayout = () => {
 
   return (
     <GraphPageLayout
-      title={name}
+      title={hash}
       subtitle="Operation clients"
       breadcrumbs={[
         <Link

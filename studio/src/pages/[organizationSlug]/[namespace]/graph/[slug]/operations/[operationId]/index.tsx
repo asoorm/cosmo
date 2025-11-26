@@ -32,9 +32,7 @@ import { useFilterState } from "@/components/operations/use-filter-state";
 
 const OperationDetailsPage: NextPageWithLayout = () => {
   const router = useRouter();
-  const [type, name, hash] = decodeURIComponent(
-    router.query.operationId as string,
-  ).split("-");
+  const hash = decodeURIComponent(router.query.operationId as string);
   const organizationSlug = useCurrentOrganization()?.slug;
   const slug = router.query.slug as string;
   const {
@@ -52,15 +50,13 @@ const OperationDetailsPage: NextPageWithLayout = () => {
       namespace: graphContext?.graph?.namespace,
       federatedGraphName: graphContext?.graph?.name,
       operationHash: hash,
-      operationName: name,
-      operationType: type,
       range,
       dateRange: range
         ? undefined
         : {
           start: formatISO(dateRange.start),
           end: formatISO(dateRange.end),
-        },
+        }, 
       filters: transformFiltersForAPI(columnFilters),
     },
     {
@@ -103,7 +99,7 @@ const OperationDetailsPage: NextPageWithLayout = () => {
 
   return (
     <GraphPageLayout
-      title={name}
+      title={data?.metadata?.name || hash}
       subtitle="Metrics related to a specific operation"
       breadcrumbs={[
         <Link
@@ -126,7 +122,7 @@ const OperationDetailsPage: NextPageWithLayout = () => {
         <div className="flex min-h-0 flex-1 grid-cols-2 flex-col gap-4 lg:grid">
           <DetailCard metadata={data.metadata} />
           <ErrorPercentageCard
-            operationName={name}
+            operationName={data.metadata?.name || hash}
             operationHash={hash}
             organizationSlug={organizationSlug}
             namespace={namespace}

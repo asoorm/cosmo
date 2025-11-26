@@ -2971,11 +2971,9 @@ message GetOperationDetailMetricsPageRequest {
   string namespace = 1;
   string federatedGraphName = 2;
   string operationHash = 3;
-  string operationName = 4;
-  string operationType = 5;
-  DateRange dateRange = 6;
-  optional int32 range = 7;
-  repeated AnalyticsFilter filters = 8;
+  DateRange dateRange = 4;
+  optional int32 range = 5;
+  repeated AnalyticsFilter filters = 6;
 }
 
 message GetOperationDetailMetricsPageResponse {
@@ -2999,14 +2997,12 @@ message GetOperationDetailClientPageRequest {
   string namespace = 1;
   string federatedGraphName = 2;
   string operationHash = 3;
-  string operationName = 4;
-  string operationType = 5;
-  int32 limit = 6;
-  int32 offset = 7;
-  DateRange dateRange = 8;
-  optional int32 range = 9;
-  repeated AnalyticsFilter filters = 10;
-  repeated Sort sorting = 11;
+  int32 limit = 4;
+  int32 offset = 5;
+  DateRange dateRange = 6;
+  optional int32 range = 7;
+  repeated AnalyticsFilter filters = 8;
+  repeated Sort sorting = 9;
 }
 
 message GetOperationDetailClientPageResponse {

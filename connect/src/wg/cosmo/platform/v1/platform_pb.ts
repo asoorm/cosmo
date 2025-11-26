@@ -23255,27 +23255,17 @@ export class GetOperationDetailMetricsPageRequest extends Message<GetOperationDe
   operationHash = "";
 
   /**
-   * @generated from field: string operationName = 4;
-   */
-  operationName = "";
-
-  /**
-   * @generated from field: string operationType = 5;
-   */
-  operationType = "";
-
-  /**
-   * @generated from field: wg.cosmo.platform.v1.DateRange dateRange = 6;
+   * @generated from field: wg.cosmo.platform.v1.DateRange dateRange = 4;
    */
   dateRange?: DateRange;
 
   /**
-   * @generated from field: optional int32 range = 7;
+   * @generated from field: optional int32 range = 5;
    */
   range?: number;
 
   /**
-   * @generated from field: repeated wg.cosmo.platform.v1.AnalyticsFilter filters = 8;
+   * @generated from field: repeated wg.cosmo.platform.v1.AnalyticsFilter filters = 6;
    */
   filters: AnalyticsFilter[] = [];
 
@@ -23290,11 +23280,9 @@ export class GetOperationDetailMetricsPageRequest extends Message<GetOperationDe
     { no: 1, name: "namespace", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "federatedGraphName", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "operationHash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 4, name: "operationName", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 5, name: "operationType", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 6, name: "dateRange", kind: "message", T: DateRange },
-    { no: 7, name: "range", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
-    { no: 8, name: "filters", kind: "message", T: AnalyticsFilter, repeated: true },
+    { no: 4, name: "dateRange", kind: "message", T: DateRange },
+    { no: 5, name: "range", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 6, name: "filters", kind: "message", T: AnalyticsFilter, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationDetailMetricsPageRequest {
@@ -23462,42 +23450,32 @@ export class GetOperationDetailClientPageRequest extends Message<GetOperationDet
   operationHash = "";
 
   /**
-   * @generated from field: string operationName = 4;
-   */
-  operationName = "";
-
-  /**
-   * @generated from field: string operationType = 5;
-   */
-  operationType = "";
-
-  /**
-   * @generated from field: int32 limit = 6;
+   * @generated from field: int32 limit = 4;
    */
   limit = 0;
 
   /**
-   * @generated from field: int32 offset = 7;
+   * @generated from field: int32 offset = 5;
    */
   offset = 0;
 
   /**
-   * @generated from field: wg.cosmo.platform.v1.DateRange dateRange = 8;
+   * @generated from field: wg.cosmo.platform.v1.DateRange dateRange = 6;
    */
   dateRange?: DateRange;
 
   /**
-   * @generated from field: optional int32 range = 9;
+   * @generated from field: optional int32 range = 7;
    */
   range?: number;
 
   /**
-   * @generated from field: repeated wg.cosmo.platform.v1.AnalyticsFilter filters = 10;
+   * @generated from field: repeated wg.cosmo.platform.v1.AnalyticsFilter filters = 8;
    */
   filters: AnalyticsFilter[] = [];
 
   /**
-   * @generated from field: repeated wg.cosmo.platform.v1.Sort sorting = 11;
+   * @generated from field: repeated wg.cosmo.platform.v1.Sort sorting = 9;
    */
   sorting: Sort[] = [];
 
@@ -23512,14 +23490,12 @@ export class GetOperationDetailClientPageRequest extends Message<GetOperationDet
     { no: 1, name: "namespace", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "federatedGraphName", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "operationHash", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 4, name: "operationName", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 5, name: "operationType", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 6, name: "limit", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
-    { no: 7, name: "offset", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
-    { no: 8, name: "dateRange", kind: "message", T: DateRange },
-    { no: 9, name: "range", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
-    { no: 10, name: "filters", kind: "message", T: AnalyticsFilter, repeated: true },
-    { no: 11, name: "sorting", kind: "message", T: Sort, repeated: true },
+    { no: 4, name: "limit", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 5, name: "offset", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 6, name: "dateRange", kind: "message", T: DateRange },
+    { no: 7, name: "range", kind: "scalar", T: 5 /* ScalarType.INT32 */, opt: true },
+    { no: 8, name: "filters", kind: "message", T: AnalyticsFilter, repeated: true },
+    { no: 9, name: "sorting", kind: "message", T: Sort, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetOperationDetailClientPageRequest {

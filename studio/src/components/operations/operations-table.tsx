@@ -25,31 +25,24 @@ const OperationsTableRow = ({
   children,
   hasError,
   operationHash,
-  operationName,
-  operationType,
 }: {
   children: ReactNode;
   hasError: boolean;
   operationHash: string;
-  operationName: string;
-  operationType: string;
 }) => {
   const router = useRouter();
-  const id = encodeURIComponent(
-    `${operationType}-${operationName}-${operationHash}`,
-  );
 
   const handleRowClick = () => {
     const query: typeof router.query = {
       ...router.query,
-      operationId: id,
+      operationId: operationHash,
     };
 
     const dateQuery: typeof router.query = {
       organizationSlug: query.organizationSlug,
       namespace: query.namespace,
       slug: query.slug,
-      operationId: id,
+      operationId: operationHash,
     };
     if (query.range) dateQuery.range = query.range;
     if (query.dateRange) dateQuery.dateRange = query.dateRange;
@@ -136,9 +129,7 @@ export const OperationsTable = ({
         <TableBody>
           {operations.map((operation) => (
             <OperationsTableRow
-              key={`${operation.type}-${operation.name}-${operation.hash}`}
-              operationType={operation.type}
-              operationName={operation.name}
+              key={operation.hash}
               operationHash={operation.hash}
               hasError={operation.hasErrors}
             >

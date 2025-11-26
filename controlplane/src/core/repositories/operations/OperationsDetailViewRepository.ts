@@ -12,20 +12,16 @@ export class OperationsDetailViewRepository {
 
   /**
    * Obtains basic metadata information regarding given operation
-   * identified by its name, hash and type.
+   * identified by its hash.
    */
-  public async getOperationMetadataByNameHashType({
+  public async getOperationMetadataByHash({
     organizationId,
     graphId,
-    operationName,
     operationHash,
-    operationType,
   }: {
     organizationId: string;
     graphId: string;
-    operationName: string;
     operationHash: string;
-    operationType: string;
   }) {
     const query = `
       SELECT
@@ -35,9 +31,7 @@ export class OperationsDetailViewRepository {
       FROM
         ${this.client.database}.gql_metrics_operations
       WHERE
-        "OperationName" = '${operationName}'
-        AND "OperationType" = '${operationType}'
-        AND "OperationHash" = '${operationHash}'
+        "OperationHash" = '${operationHash}'
         AND "OrganizationID" = '${organizationId}'
         AND "FederatedGraphID" = '${graphId}'
     `;
@@ -55,23 +49,19 @@ export class OperationsDetailViewRepository {
 
   /**
    * Obtains top clients by request and error count for given operation
-   * identified by its name, hash and type.
+   * identified by its hash.
    */
-  public async getTopClientsForOperationByNameHashType({
+  public async getTopClientsForOperationByHash({
     organizationId,
     graphId,
-    operationName,
     operationHash,
-    operationType,
     range,
     dateRange,
     filters = [],
   }: {
     organizationId: string;
     graphId: string;
-    operationName: string;
     operationHash: string;
-    operationType: string;
     range?: number;
     dateRange?: DateRange<string>;
     filters?: AnalyticsFilter[];
@@ -93,8 +83,6 @@ export class OperationsDetailViewRepository {
             ${this.client.database}.operation_request_metrics_5_30 as oprm
           WHERE
             oprm."Timestamp" >= startDate AND oprm."Timestamp" <= endDate
-            AND oprm."OperationName" = '${operationName}'
-            AND oprm."OperationType" = '${operationType}'
             AND oprm."OperationHash" = '${operationHash}'
             AND oprm."OrganizationID" = '${organizationId}'
             AND oprm."FederatedGraphID" = '${graphId}'
@@ -148,20 +136,16 @@ export class OperationsDetailViewRepository {
 
   /**
    * Obtains all clients with their versions for given operation
-   * identified by its name, hash and type.
+   * identified by its hash.
    */
-  public async getAllClientsWithVersionsForOperationByNameHashType({
+  public async getAllClientsWithVersionsForOperationByHash({
     organizationId,
     graphId,
-    operationName,
     operationHash,
-    operationType,
   }: {
     organizationId: string;
     graphId: string;
-    operationName: string;
     operationHash: string;
-    operationType: string;
   }) {
     const query = `
       SELECT DISTINCT
@@ -170,9 +154,7 @@ export class OperationsDetailViewRepository {
       FROM
         ${this.client.database}.operation_request_metrics_5_30
       WHERE
-        "OperationName" = '${operationName}'
-        AND "OperationType" = '${operationType}'
-        AND "OperationHash" = '${operationHash}'
+        "OperationHash" = '${operationHash}'
         AND "OrganizationID" = '${organizationId}'
         AND "FederatedGraphID" = '${graphId}'
       ORDER BY
@@ -192,14 +174,12 @@ export class OperationsDetailViewRepository {
 
   /**
    * Obtains paginated list of clients for given operation
-   * identified by its name, hash and type.
+   * identified by its hash.
    */
-  public async getOperationClientListByNameHashType({
+  public async getOperationClientListByHash({
     organizationId,
     graphId,
-    operationName,
     operationHash,
-    operationType,
     limit,
     offset,
     range,
@@ -209,9 +189,7 @@ export class OperationsDetailViewRepository {
   }: {
     organizationId: string;
     graphId: string;
-    operationName: string;
     operationHash: string;
-    operationType: string;
     limit: number;
     offset: number;
     range?: number;
@@ -237,8 +215,6 @@ export class OperationsDetailViewRepository {
         ${this.client.database}.operation_request_metrics_5_30
       WHERE
         "Timestamp" >= startDate AND "Timestamp" <= endDate
-        AND "OperationName" = '${operationName}'
-        AND "OperationType" = '${operationType}'
         AND "OperationHash" = '${operationHash}'
         AND "OrganizationID" = '${organizationId}'
         AND "FederatedGraphID" = '${graphId}'
@@ -272,23 +248,19 @@ export class OperationsDetailViewRepository {
 
   /**
    * Filtered total request / error metrics for given operation
-   * identified by its name, hash and type.
+   * identified by its hash.
    */
-  public async getRequestsForOperationByNameHashType({
+  public async getRequestsForOperationByHash({
     organizationId,
     graphId,
-    operationName,
     operationHash,
-    operationType,
     range,
     dateRange,
     filters = [],
   }: {
     organizationId: string;
     graphId: string;
-    operationName: string;
     operationHash: string;
-    operationType: string;
     range?: number;
     dateRange?: DateRange<string>;
     filters?: AnalyticsFilter[];
@@ -310,8 +282,6 @@ export class OperationsDetailViewRepository {
         ON toStartOfInterval(oprm."Timestamp", INTERVAL 5 MINUTE) = timestamp
         AND oprm."Timestamp" >= startDate
         AND oprm."Timestamp" <= endDate
-        AND oprm."OperationName" = '${operationName}'
-        AND oprm."OperationType" = '${operationType}'
         AND oprm."OperationHash" = '${operationHash}'
         AND oprm."OrganizationID" = '${organizationId}'
         AND oprm."FederatedGraphID" = '${graphId}'
@@ -333,13 +303,9 @@ export class OperationsDetailViewRepository {
       WHERE
         "Timestamp" >= startDate
         AND "Timestamp" <= endDate
-        AND "OperationName" = '${operationName}'
-        AND "OperationType" = '${operationType}'
         AND "OperationHash" = '${operationHash}'
         AND "OrganizationID" = '${organizationId}'
         AND "FederatedGraphID" = '${graphId}'
-      GROUP BY
-        "OperationName", "OperationHash", "OperationType"
     `;
 
     const metricsResultQueryPromise = this.client.queryPromise<{
@@ -371,23 +337,19 @@ export class OperationsDetailViewRepository {
 
   /**
    * Filtered latency metrics for given operation
-   * identified by its name, hash and type.
+   * identified by its hash.
    */
-  public async getLatencyForOperationByNameHashType({
+  public async getLatencyForOperationByHash({
     organizationId,
     graphId,
-    operationName,
     operationHash,
-    operationType,
     range,
     dateRange,
     filters = [],
   }: {
     organizationId: string;
     graphId: string;
-    operationName: string;
     operationHash: string;
-    operationType: string;
     range?: number;
     dateRange?: DateRange<string>;
     filters?: AnalyticsFilter[];
@@ -409,8 +371,6 @@ export class OperationsDetailViewRepository {
         ON toStartOfInterval(oplm."Timestamp", INTERVAL 5 MINUTE) = timestamp
         AND oplm."Timestamp" >= startDate
         AND oplm."Timestamp" <= endDate
-        AND oplm."OperationName" = '${operationName}'
-        AND oplm."OperationType" = '${operationType}'
         AND oplm."OperationHash" = '${operationHash}'
         AND oplm."OrganizationID" = '${organizationId}'
         AND oplm."FederatedGraphID" = '${graphId}'

@@ -86,7 +86,7 @@ export const RequestsChart = ({
         />
         <YAxis
           tick={{ fill: "hsl(var(--muted-foreground))", fontSize: "13px" }}
-          tickFormatter={formatMetric}
+          tickFormatter={(value) => formatMetric(value)}
           axisLine={false}
           tickLine={false}
         />
