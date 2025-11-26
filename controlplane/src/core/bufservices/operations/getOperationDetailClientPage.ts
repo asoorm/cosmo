@@ -60,8 +60,6 @@ export function getOperationDetailClientPage(
       dateRange: req.dateRange,
     });
 
-    console.log(`range: ${range}, dateRange: ${JSON.stringify(dateRange)}`);
-
     const repo = new OperationsDetailViewRepository(opts.chClient);
     const [view, allClients] = await Promise.all([
       repo.getOperationClientListByHash({
