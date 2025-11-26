@@ -46,7 +46,7 @@ export class OperationsViewRepository {
         max("Timestamp") AS timestamp,
         toInt32(sum("TotalRequests")) as totalRequestCount,
         IF(sum("TotalErrors") > 0, true, false) as hasErrors,
-        count("OperationHash") OVER () AS count
+        count(DISTINCT "OperationHash") OVER () AS count
       FROM
         ${this.client.database}.operation_request_metrics_5_30
       WHERE
@@ -146,10 +146,6 @@ export class OperationsViewRepository {
   }
 
   private static buildOperationsOrderByClause(sorting: Sort[], defaultSort = 'timestamp DESC'): string {
-    if (sorting.length === 0) {
-      return defaultSort;
-    }
-
     const columnMap: Record<string, string> = {
       name: 'name',
       type: 'type',
@@ -158,11 +154,18 @@ export class OperationsViewRepository {
       hasErrors: 'hasErrors',
     };
 
-    return sorting
-      .map((s) => {
-        const column = columnMap[s.id] || s.id;
-        return `${column} ${s.desc ? 'DESC' : 'ASC'}`;
-      })
-      .join(', ');
+    let orderBy: string;
+    if (sorting.length === 0) {
+      orderBy = defaultSort;
+    } else {
+      orderBy = sorting
+        .map((s) => {
+          const column = columnMap[s.id] || s.id;
+          return `${column} ${s.desc ? 'DESC' : 'ASC'}`;
+        })
+        .join(', ');
+    }
+
+    return `${orderBy}, hash ASC`;
   }
 }
