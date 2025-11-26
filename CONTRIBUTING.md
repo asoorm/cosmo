@@ -153,31 +153,32 @@ _Clean up all containers and volumes by running `make infra-down-v`. You can rep
 
 ### Generating mock operations
 
-If you want to develop and have some mock data ready, you can use provided script to generate mocked operations against the demo subgraphs:
+Use `make generate-mock-ops` to send mock network requests to the router for testing purposes. The operations are defined in `scripts/demo-mock-operations/`. Examples:
 
 ```shell
-# Generate 50 operations (default)
+# Execute all operations at once
 make generate-mock-ops
 
-# Generate custom number of operations
-make generate-mock-ops amount=100
+# Execute 3 batches of all operations, waiting 10 seconds between batches,
+# and firing off 5 requests per operation in each batch
+make generate-mock-ops repeat=3 repeatDelay=10 variableRequestCount=5
 
-# Generate operations with repeat
-make generate-mock-ops amount=100 repeat=3
+# Make half of the requests fail
+make generate-mock-ops failRate=0.5
 ```
 
-#### Demo Operations with Authentication
-
-Predefined demo operations in `scripts/demo-mock-operations/` test both authenticated fields (with `@requiresScopes` / `@authenticated` directives) and regular public operations.
+**Continuous mode:** Run operations repeatedly at random intervals until stopped with CTRL+C:
 
 ```shell
-# Execute predefined demo operations with authentication
-make generate-mock-ops demo=true
+# Default: random delay between 5-15 seconds
+make generate-mock-ops-continuous variableRequestCount=3 failRate=0.5
 
-# Simulate authentication failures for operations with requiresAuth, waits 5 minutes (300s) between batches
-# and fires of random amount of requests per batch
-make generate-mock-ops demo=true repeat=3 repeatDelay=300 failRate=0.5 variableRequestCount=12
+# Custom delay range (2-8 seconds)
+make generate-mock-ops-continuous minDelay=2 maxDelay=8 variableRequestCount=5
 ```
+
+In order to use `failRate`, the script relies on authentication being enabled in the router. The token and endpoint are autoloaded from `router/.env`.
+The failures are simulated by removing the `Authentication` HTTP header for operations marked with `@requiresScopes` or `@authenticated` directives in the demo GraphQL schema.
 
 **Requirements:**
 - Router must be running with JWT authentication configured (see `router/demo.config.yaml`)
