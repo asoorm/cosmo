@@ -3,7 +3,10 @@ import { useRouter } from "next/router";
 import type { Range } from "@/components/date-picker-with-range";
 import { useAnalyticsQueryState } from "@/components/analytics/useAnalyticsQueryState";
 
-export const useOperationClientsState = (customDefaultRange?: Range) => {
+/**
+ * Manages state for date range picker
+ */
+export const useDateRangeState = (customDefaultRange?: Range) => {
   const { range, dateRange } = useAnalyticsQueryState(customDefaultRange);
   const router = useRouter();
 

@@ -11,7 +11,7 @@ import { Pagination } from "@/components/ui/pagination";
 import { GraphContext } from "@/components/layout/graph-layout";
 import { OperationsTable } from "@/components/operations/operations-table";
 import { FiltersToolbar } from "@/components/operations/filters-toolbar";
-import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
+import { useDateRangeState } from "@/components/operations/use-date-range-state";
 import { useSortingState } from "@/components/operations/use-sorting-state";
 import { useOperationsFilters } from "@/components/operations/use-operations-filters";
 import { useFilterState, transformFiltersForAPI } from "@/components/operations/use-filter-state";
@@ -28,7 +28,7 @@ const OperationsPage: NextPageWithLayout = () => {
   const router = useRouter();
   const graphContext = useContext(GraphContext);
   const { sorting, setSorting } = useSortingState(DEFAULT_OPERATIONS_TABLE_SORT);
-  const { range, dateRange } = useOperationClientsState();
+  const { range, dateRange } = useDateRangeState();
   const pageNumber = router.query.page
     ? parseInt(router.query.page as string)
     : 1;

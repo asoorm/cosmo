@@ -13,7 +13,7 @@ import { ClientsTable } from "@/components/operations/clients-table";
 import { OperationsToolbar } from "@/components/operations/operations-toolbar";
 import { GraphContext } from "@/components/layout/graph-layout";
 import { FiltersToolbar } from "@/components/operations/filters-toolbar";
-import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
+import { useDateRangeState } from "@/components/operations/use-date-range-state";
 import {
   useOperationClientFilters,
   transformFiltersForAPI,
@@ -40,7 +40,7 @@ const OperationClientsPage: NextPageWithLayout = () => {
   } = useWorkspace();
 
   const { sorting, setSorting } = useSortingState(DEFAULT_CLIENTS_TABLE_SORT);
-  const { range, dateRange } = useOperationClientsState();
+  const { range, dateRange } = useDateRangeState();
 
   const graphContext = useContext(GraphContext);
   const pageNumber = router.query.page

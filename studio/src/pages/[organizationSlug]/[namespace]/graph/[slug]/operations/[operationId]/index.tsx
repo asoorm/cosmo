@@ -12,7 +12,7 @@ import { useCurrentOrganization } from "@/hooks/use-current-organization";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { OperationsToolbar } from "@/components/operations/operations-toolbar";
 import { FiltersToolbar } from "@/components/operations/filters-toolbar";
-import { useOperationClientsState } from "@/components/operations/use-operation-clients-state";
+import { useDateRangeState } from "@/components/operations/use-date-range-state";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
@@ -38,7 +38,7 @@ const OperationDetailsPage: NextPageWithLayout = () => {
   const {
     namespace: { name: namespace },
   } = useWorkspace();
-  const { range, dateRange } = useOperationClientsState();
+  const { range, dateRange } = useDateRangeState();
   const syncId = useId();
 
   const graphContext = useContext(GraphContext);
