@@ -107,6 +107,7 @@ export class OperationsDetailViewRepository {
       ${subQuery}
       SELECT clients.name, clients.version, clients.totalErrorCount as count
       FROM clients
+      WHERE clients.totalErrorCount > 0
       ORDER BY
         clients.totalErrorCount DESC
       LIMIT
