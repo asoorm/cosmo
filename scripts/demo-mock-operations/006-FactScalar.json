@@ -1,0 +1,7 @@
+{
+  "name": "FactScalar",
+  "type": "query",
+  "operation": "query FactScalar {\n  topSecretFederationFacts {\n    description\n    ... on DirectiveFact {\n      title\n    }\n  }\n}",
+  "variables": {},
+  "requiresAuth": true
+}

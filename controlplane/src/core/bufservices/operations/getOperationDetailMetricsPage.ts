@@ -1,0 +1,130 @@
+/* eslint-disable camelcase */
+import { PlainMessage } from '@bufbuild/protobuf';
+import { HandlerContext } from '@connectrpc/connect';
+import { EnumStatusCode } from '@wundergraph/cosmo-connect/dist/common/common_pb';
+import {
+  GetOperationDetailMetricsPageRequest,
+  GetOperationDetailMetricsPageResponse,
+} from '@wundergraph/cosmo-connect/dist/platform/v1/platform_pb';
+import type { RouterOptions } from '../../routes.js';
+import { OrganizationRepository } from '../../repositories/OrganizationRepository.js';
+import { FederatedGraphRepository } from '../../repositories/FederatedGraphRepository.js';
+import { OperationsDetailViewRepository } from '../../repositories/operations/OperationsDetailViewRepository.js';
+import { enrichLogger, getLogger, handleError, validateDateRanges } from '../../util.js';
+
+export function getOperationDetailMetricsPage(
+  opts: RouterOptions,
+  req: GetOperationDetailMetricsPageRequest,
+  ctx: HandlerContext,
+): Promise<PlainMessage<GetOperationDetailMetricsPageResponse>> {
+  let logger = getLogger(ctx, opts.logger);
+
+  return handleError<PlainMessage<GetOperationDetailMetricsPageResponse>>(ctx, logger, async () => {
+    if (!opts.chClient) {
+      return {
+        response: {
+          code: EnumStatusCode.ERR_ANALYTICS_DISABLED,
+        },
+        topClients: [],
+        topErrorClients: [],
+        requestMetrics: {
+          requests: [],
+          totalRequestCount: 0,
+          totalErrorCount: 0,
+          errorPercentage: 0,
+        },
+        latencyMetrics: {
+          requests: [],
+        },
+        allClients: [],
+      };
+    }
+
+    const authContext = await opts.authenticator.authenticate(ctx.requestHeader);
+    logger = enrichLogger(ctx, logger, authContext);
+
+    const fedGraphRepo = new FederatedGraphRepository(logger, opts.db, authContext.organizationId);
+    const orgRepo = new OrganizationRepository(logger, opts.db, opts.billingDefaultPlanId);
+    const graph = await fedGraphRepo.byName(req.federatedGraphName, req.namespace);
+    if (!graph) {
+      return {
+        response: {
+          code: EnumStatusCode.ERR_NOT_FOUND,
+          details: `Federated graph '${req.federatedGraphName}' not found`,
+        },
+        topClients: [],
+        topErrorClients: [],
+        requestMetrics: {
+          requests: [],
+          totalRequestCount: 0,
+          totalErrorCount: 0,
+          errorPercentage: 0,
+        },
+        latencyMetrics: {
+          requests: [],
+        },
+        allClients: [],
+      };
+    }
+
+    const analyticsRetention = await orgRepo.getFeature({
+      organizationId: authContext.organizationId,
+      featureId: 'analytics-retention',
+    });
+
+    const { range, dateRange } = validateDateRanges({
+      limit: analyticsRetention?.limit ?? 7,
+      range: req.range,
+      dateRange: req.dateRange,
+    });
+
+    const repo = new OperationsDetailViewRepository(opts.chClient);
+    const [metadata, topClients, requestMetrics, latencyMetrics, allClients] = await Promise.all([
+      repo.getOperationMetadataByHash({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        operationHash: req.operationHash,
+      }),
+      repo.getTopClientsForOperationByHash({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        operationHash: req.operationHash,
+        range,
+        dateRange,
+        filters: req.filters,
+      }),
+      repo.getRequestsForOperationByHash({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        operationHash: req.operationHash,
+        range,
+        dateRange,
+        filters: req.filters,
+      }),
+      repo.getLatencyForOperationByHash({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        operationHash: req.operationHash,
+        range,
+        dateRange,
+        filters: req.filters,
+      }),
+      repo.getAllClientsWithVersionsForOperationByHash({
+        organizationId: authContext.organizationId,
+        graphId: graph.id,
+        operationHash: req.operationHash,
+      }),
+    ]);
+
+    return {
+      response: {
+        code: EnumStatusCode.OK,
+      },
+      ...metadata,
+      ...topClients,
+      ...requestMetrics,
+      ...latencyMetrics,
+      ...allClients,
+    };
+  });
+}

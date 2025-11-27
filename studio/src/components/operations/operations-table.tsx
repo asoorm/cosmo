@@ -1,0 +1,151 @@
+import { OperationPageItem } from "@wundergraph/cosmo-connect/dist/platform/v1/platform_pb";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TableWrapper,
+} from "@/components/ui/table";
+import { formatDateTime } from "@/lib/format-date";
+import { cn } from "@/lib/utils";
+import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { useRouter } from "next/router";
+import type { ReactNode } from "react";
+import { HiOutlineCheck } from "react-icons/hi2";
+import type { SortingState } from "@tanstack/react-table";
+import {
+  SortableTableHead,
+  useSortableTableHeader,
+} from "./sortable-table-head";
+import { TruncatedCellTooltip } from "./truncated-cell-tooltip";
+
+const OperationsTableRow = ({
+  children,
+  hasError,
+  operationHash,
+}: {
+  children: ReactNode;
+  hasError: boolean;
+  operationHash: string;
+}) => {
+  const router = useRouter();
+
+  const handleRowClick = () => {
+    const query: typeof router.query = {
+      ...router.query,
+      operationId: operationHash,
+    };
+
+    const dateQuery: typeof router.query = {
+      organizationSlug: query.organizationSlug,
+      namespace: query.namespace,
+      slug: query.slug,
+      operationId: operationHash,
+    };
+    if (query.range) dateQuery.range = query.range;
+    if (query.dateRange) dateQuery.dateRange = query.dateRange;
+
+    router.push({
+      pathname:
+        "/[organizationSlug]/[namespace]/graph/[slug]/operations/[operationId]",
+      query: dateQuery,
+    });
+  };
+
+  return (
+    <TableRow
+      onClick={handleRowClick}
+      className={cn("group cursor-pointer py-1 hover:bg-secondary/30", {
+        "bg-destructive/10": hasError,
+      })}
+    >
+      {children}
+    </TableRow>
+  );
+};
+
+const OperationsStatusTableCell = ({ hasError }: { hasError: boolean }) => {
+  return (
+    <TableCell className="flex items-center space-x-2">
+      {hasError ? (
+        <ExclamationTriangleIcon className="mt-2 h-5 w-5 text-destructive" />
+      ) : (
+        <HiOutlineCheck className="mt-2 h-5 w-5" />
+      )}
+    </TableCell>
+  );
+};
+
+export const OperationsTable = ({
+  operations,
+  sorting,
+  setSorting,
+}: {
+  operations: OperationPageItem[];
+  sorting: SortingState;
+  setSorting: (sort: SortingState) => void;
+}) => {
+  const { handleHeaderClick } = useSortableTableHeader(sorting, setSorting);
+
+  return (
+    <TableWrapper>
+      <Table className="table-fixed">
+        <TableHeader>
+          <TableRow>
+            <SortableTableHead
+              id="name"
+              label="Name"
+              sorting={sorting}
+              onClick={handleHeaderClick}
+            />
+            <SortableTableHead
+              id="type"
+              label="Type"
+              sorting={sorting}
+              onClick={handleHeaderClick}
+            />
+            <SortableTableHead
+              id="timestamp"
+              label="Timestamp"
+              sorting={sorting}
+              onClick={handleHeaderClick}
+            />
+            <SortableTableHead
+              id="totalRequestCount"
+              label="Requests"
+              sorting={sorting}
+              onClick={handleHeaderClick}
+            />
+            <SortableTableHead
+              id="hasErrors"
+              label="Status"
+              sorting={sorting}
+              onClick={handleHeaderClick}
+            />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {operations.map((operation) => (
+            <OperationsTableRow
+              key={operation.hash}
+              operationHash={operation.hash}
+              hasError={operation.hasErrors}
+            >
+              <TableCell className="truncate">
+                <TruncatedCellTooltip>{operation.name}</TruncatedCellTooltip>
+              </TableCell>
+              <TableCell className="truncate">{operation.type}</TableCell>
+              <TableCell className="truncate">
+                {formatDateTime(new Date(operation.timestamp))}
+              </TableCell>
+              <TableCell>{operation.totalRequestCount.toString()}</TableCell>
+              <OperationsStatusTableCell hasError={operation.hasErrors} />
+            </OperationsTableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableWrapper>
+  );
+};

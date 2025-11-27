@@ -2904,6 +2904,119 @@ message GetOperationsResponse {
   repeated Operation operations = 2;
 }
 
+message OperationPageItem {
+  string hash = 1;
+  string name = 2;
+  string type = 3;
+  string timestamp = 4;
+  int32 totalRequestCount = 5;
+  bool hasErrors = 6;
+}
+
+message GetOperationsPageRequest {
+  string namespace = 1;
+  string federatedGraphName = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+  repeated Sort sorting = 5;
+  DateRange dateRange = 6;
+  optional int32 range = 7;
+  repeated AnalyticsFilter filters = 8;
+}
+
+message GetOperationsPageResponse {
+  Response response = 1;
+  repeated OperationPageItem operations = 2;
+  int32 count = 3;
+  repeated string allOperationNames = 4;
+  repeated string allOperationTypes = 5;
+}
+
+message OperationDetailRequestMetric {
+  string timestamp = 1;
+  int32 requests = 2;
+  int32 errors = 3;
+}
+
+message OperationDetailLatencyMetric {
+  string timestamp = 1;
+  double minDuration = 2;
+  double maxDuration = 3;
+}
+
+message OperationDetailRequestMetrics {
+  repeated OperationDetailRequestMetric requests = 1;
+  int32 totalRequestCount = 2;
+  int32 totalErrorCount = 3;
+  double errorPercentage = 4;
+}
+
+message OperationDetailLatencyMetrics {
+  repeated OperationDetailLatencyMetric requests = 1;
+}
+
+message OperationDetailMetadata {
+  string name = 1;
+  string type = 2;
+  string content = 3;
+}
+
+message OperationDetailTopClientItem {
+  string name = 1;
+  string version = 2;
+  int32 count = 3;
+}
+
+message GetOperationDetailMetricsPageRequest {
+  string namespace = 1;
+  string federatedGraphName = 2;
+  string operationHash = 3;
+  DateRange dateRange = 4;
+  optional int32 range = 5;
+  repeated AnalyticsFilter filters = 6;
+}
+
+message GetOperationDetailMetricsPageResponse {
+  Response response = 1;
+  OperationDetailMetadata metadata = 2;
+  repeated OperationDetailTopClientItem topClients = 3;
+  repeated OperationDetailTopClientItem topErrorClients = 4;
+  OperationDetailRequestMetrics requestMetrics = 5;
+  OperationDetailLatencyMetrics latencyMetrics = 6;
+  repeated OperationClient allClients = 7;
+}
+
+message OperationDetailClientPageItem {
+  int32 totalRequests = 1;
+  int32 totalErrors = 2;
+  string clientName = 3;
+  string clientVersion = 4;
+}
+
+message GetOperationDetailClientPageRequest {
+  string namespace = 1;
+  string federatedGraphName = 2;
+  string operationHash = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+  DateRange dateRange = 6;
+  optional int32 range = 7;
+  repeated AnalyticsFilter filters = 8;
+  repeated Sort sorting = 9;
+}
+
+message GetOperationDetailClientPageResponse {
+  Response response = 1;
+  repeated OperationDetailClientPageItem clients = 2;
+  repeated OperationClient allClients = 3;
+  int32 count = 4;
+}
+
+message OperationClient {
+  string name = 1;
+  string version = 2;
+}
+
 message GetClientsFromAnalyticsRequest {
   string federatedGraphName = 1;
   string namespace = 2;
@@ -3324,6 +3437,12 @@ service PlatformService {
   rpc GetProposalChecks(GetProposalChecksRequest) returns (GetProposalChecksResponse) {}
   // GetOperations returns the operations of a federated graph.
   rpc GetOperations(GetOperationsRequest) returns (GetOperationsResponse) {}
+  // GetOperationsPage returns the operations page data from gql_metrics_operations table.
+  rpc GetOperationsPage(GetOperationsPageRequest) returns (GetOperationsPageResponse) {}
+  // GetOperationDetailMetricsPage returns the operation detail metrics page data
+  rpc GetOperationDetailMetricsPage(GetOperationDetailMetricsPageRequest) returns (GetOperationDetailMetricsPageResponse) {}
+  // GetOperationDetailClientPage returns the operation detail client page data from operations table
+  rpc GetOperationDetailClientPage(GetOperationDetailClientPageRequest) returns (GetOperationDetailClientPageResponse) {}
   // GetClientsFromAnalytics returns all the clients of the federated graph from the analytics
   rpc GetClientsFromAnalytics(GetClientsFromAnalyticsRequest) returns (GetClientsFromAnalyticsResponse) {}
 

@@ -67,6 +67,21 @@ create-demo:
 delete-demo:
 	./scripts/delete-local-demo.sh
 
+generate-mock-ops:
+	@node --env-file=./router/.env ./scripts/generate-mock-operations.js \
+		$(if $(repeat),--repeat=$(repeat),) \
+		$(if $(failRate),--fail-rate=$(failRate),) \
+		$(if $(repeatDelay),--repeat-delay=$(repeatDelay),) \
+		$(if $(variableRequestCount),--variable-request-count=$(variableRequestCount),)
+
+generate-mock-ops-continuous:
+	@while true; do \
+		$(MAKE) generate-mock-ops $(if $(failRate),failRate=$(failRate),) $(if $(variableRequestCount),variableRequestCount=$(variableRequestCount),) || true; \
+		if [ -n "$(maxDelay)" ] && [ "$(maxDelay)" -gt 0 ] 2>/dev/null; then \
+			sleep $$(($(or $(minDelay),0) + RANDOM % ($(maxDelay) - $(or $(minDelay),0) + 1))); \
+		fi; \
+	done
+
 dev-setup: prerequisites
 	pnpm install
 	pnpm generate

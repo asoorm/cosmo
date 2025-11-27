@@ -1,0 +1,7 @@
+{
+  "name": "Employees",
+  "type": "query",
+  "operation": "query Employees {\n  employees {\n    id\n    tag\n    currentMood\n  }\n}",
+  "variables": {},
+  "requiresAuth": false
+}

@@ -1,0 +1,9 @@
+{
+  "name": "ComplexAuth",
+  "type": "query",
+  "operation": "query ComplexAuth($employeeId: Int!) {\n  employee(id: $employeeId) {\n    id\n    tag\n    startDate\n    details {\n      forename\n      surname\n    }\n  }\n  topSecretFederationFacts {\n    factType\n    description\n  }\n}",
+  "variables": {
+    "employeeId": 2
+  },
+  "requiresAuth": true
+}

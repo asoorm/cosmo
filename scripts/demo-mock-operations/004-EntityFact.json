@@ -1,0 +1,7 @@
+{
+  "name": "EntityFact",
+  "type": "query",
+  "operation": "query EntityFact {\n  topSecretFederationFacts {\n    factType\n    ... on EntityFact {\n      title\n      description\n    }\n  }\n}",
+  "variables": {},
+  "requiresAuth": true
+}

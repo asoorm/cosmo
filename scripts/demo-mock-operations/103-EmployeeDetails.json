@@ -1,0 +1,9 @@
+{
+  "name": "EmployeeDetails",
+  "type": "query",
+  "operation": "query EmployeeDetails($id: Int!) {\n  employee(id: $id) {\n    id\n    tag\n    details {\n      forename\n      surname\n      hasChildren\n    }\n  }\n}",
+  "variables": {
+    "id": 3
+  },
+  "requiresAuth": false
+}

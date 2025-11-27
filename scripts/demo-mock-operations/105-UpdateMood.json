@@ -1,0 +1,10 @@
+{
+  "name": "UpdateMood",
+  "type": "mutation",
+  "operation": "mutation UpdateMood($employeeID: Int!, $mood: Mood!) {\n  updateMood(employeeID: $employeeID, mood: $mood) {\n    id\n    currentMood\n    derivedMood\n  }\n}",
+  "variables": {
+    "employeeID": 1,
+    "mood": "HAPPY"
+  },
+  "requiresAuth": false
+}

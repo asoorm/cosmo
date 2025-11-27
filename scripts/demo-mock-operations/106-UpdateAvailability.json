@@ -1,0 +1,10 @@
+{
+  "name": "UpdateAvailability",
+  "type": "mutation",
+  "operation": "mutation UpdateAvailability($employeeID: Int!, $isAvailable: Boolean!) {\n  updateAvailability(employeeID: $employeeID, isAvailable: $isAvailable) {\n    id\n    isAvailable\n  }\n}",
+  "variables": {
+    "employeeID": 2,
+    "isAvailable": true
+  },
+  "requiresAuth": false
+}

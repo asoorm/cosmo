@@ -98,6 +98,9 @@ import { getWebhookDeliveryDetails } from './notification/getWebhookDeliveryDeta
 import { redeliverWebhook } from './notification/redeliverWebhook.js';
 import { updateIntegrationConfig } from './notification/updateIntegrationConfig.js';
 import { updateOrganizationWebhookConfig } from './notification/updateOrganizationWebhookConfig.js';
+import { getOperationsPage } from './operations/getOperationsPage.js';
+import { getOperationDetailClientPage } from './operations/getOperationDetailClientPage.js';
+import { getOperationDetailMetricsPage } from './operations/getOperationDetailMetricsPage.js';
 import { createOrganization } from './organization/createOrganization.js';
 import { deleteOrganization } from './organization/deleteOrganization.js';
 import { restoreOrganization } from './organization/restoreOrganization.js';
@@ -279,6 +282,18 @@ export default function (opts: RouterOptions): Partial<ServiceImpl<typeof Platfo
 
     getOperationOverrides: (req, ctx) => {
       return getOperationOverrides(opts, req, ctx);
+    },
+
+    getOperationsPage: (req, ctx) => {
+      return getOperationsPage(opts, req, ctx);
+    },
+
+    getOperationDetailMetricsPage: (req, ctx) => {
+      return getOperationDetailMetricsPage(opts, req, ctx);
+    },
+
+    getOperationDetailClientPage: (req, ctx) => {
+      return getOperationDetailClientPage(opts, req, ctx);
     },
 
     getAllOverrides: (req, ctx) => {

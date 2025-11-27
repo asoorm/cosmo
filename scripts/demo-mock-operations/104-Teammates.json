@@ -1,0 +1,9 @@
+{
+  "name": "Teammates",
+  "type": "query",
+  "operation": "query Teammates($team: Department!) {\n  teammates(team: $team) {\n    id\n    tag\n    currentMood\n  }\n}",
+  "variables": {
+    "team": "ENGINEERING"
+  },
+  "requiresAuth": false
+}

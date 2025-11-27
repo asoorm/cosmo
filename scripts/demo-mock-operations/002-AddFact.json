@@ -1,0 +1,13 @@
+{
+  "name": "AddFact",
+  "type": "mutation",
+  "operation": "mutation AddFact($fact: TopSecretFactInput!) {\n  addFact(fact: $fact) {\n    description\n    factType\n  }\n}",
+  "variables": {
+    "fact": {
+      "title": "Federation Directive Demo",
+      "description": "Demonstrates @requiresScopes directive usage",
+      "factType": "DIRECTIVE"
+    }
+  },
+  "requiresAuth": true
+}

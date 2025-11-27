@@ -151,6 +151,40 @@ cd cli && pnpm wgc -h
 
 _Clean up all containers and volumes by running `make infra-down-v`. You can repeat the steps above to bootstrap the platform again._
 
+### Generating mock operations
+
+Use `make generate-mock-ops` to send mock network requests to the router for testing purposes. The operations are defined in `scripts/demo-mock-operations/`. Examples:
+
+```shell
+# Execute all operations at once
+make generate-mock-ops
+
+# Execute 3 batches of all operations, waiting 10 seconds between batches,
+# and firing off 5 requests per operation in each batch
+make generate-mock-ops repeat=3 repeatDelay=10 variableRequestCount=5
+
+# Make half of the requests fail
+make generate-mock-ops failRate=0.5
+```
+
+**Continuous mode:** Run operations repeatedly at random intervals until stopped with CTRL+C:
+
+```shell
+# Default: random delay between 5-15 seconds
+make generate-mock-ops-continuous variableRequestCount=3 failRate=0.5
+
+# Custom delay range (2-8 seconds)
+make generate-mock-ops-continuous minDelay=2 maxDelay=8 variableRequestCount=5
+```
+
+In order to use `failRate`, the script relies on authentication being enabled in the router. The token and endpoint are autoloaded from `router/.env`.
+The failures are simulated by removing the `Authentication` HTTP header for operations marked with `@requiresScopes` or `@authenticated` directives in the demo GraphQL schema.
+
+**Requirements:**
+- Router must be running with JWT authentication configured (see `router/demo.config.yaml`)
+- `controlplane/.env` must contain `AUTH_JWT_SECRET`
+- Script automatically generates JWT tokens with all required scopes and injects `Authorization` header for all requests
+
 ### Docker Compose
 
 We manage multiple compose files:
