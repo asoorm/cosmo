@@ -16,11 +16,13 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/santhosh-tekuri/jsonschema/v6"
+	"go.uber.org/zap"
+
 	"github.com/wundergraph/cosmo/router/pkg/cors"
 	"github.com/wundergraph/cosmo/router/pkg/schemaloader"
+
 	"github.com/wundergraph/graphql-go-tools/v2/pkg/ast"
 	"github.com/wundergraph/graphql-go-tools/v2/pkg/astprinter"
-	"go.uber.org/zap"
 )
 
 // requestHeadersKey is a custom context key for storing request headers.
