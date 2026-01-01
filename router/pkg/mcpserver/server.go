@@ -18,6 +18,8 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 	"go.uber.org/zap"
 
+	"github.com/wundergraph/cosmo/router/pkg/authentication"
+	"github.com/wundergraph/cosmo/router/pkg/config"
 	"github.com/wundergraph/cosmo/router/pkg/cors"
 	"github.com/wundergraph/cosmo/router/pkg/schemaloader"
 
@@ -96,6 +98,8 @@ type Options struct {
 	Stateless bool
 	// CorsConfig is the CORS configuration for the MCP server
 	CorsConfig cors.Config
+	// OAuthConfig is the OAuth/JWKS configuration for authentication
+	OAuthConfig *config.MCPOAuthConfiguration
 }
 
 // GraphQLSchemaServer represents an MCP server that works with GraphQL schemas and operations
@@ -117,6 +121,8 @@ type GraphQLSchemaServer struct {
 	schemaCompiler            *SchemaCompiler
 	registeredTools           []string
 	corsConfig                cors.Config
+	ctx                       context.Context
+	cancel                    context.CancelFunc
 }
 
 type graphqlRequest struct {
@@ -189,7 +195,6 @@ type GraphQLResponse struct {
 
 // NewGraphQLSchemaServer creates a new GraphQL schema server
 func NewGraphQLSchemaServer(routerGraphQLEndpoint string, opts ...func(*Options)) (*GraphQLSchemaServer, error) {
-
 	if routerGraphQLEndpoint == "" {
 		return nil, fmt.Errorf("routerGraphQLEndpoint cannot be empty")
 	}
@@ -215,14 +220,71 @@ func NewGraphQLSchemaServer(routerGraphQLEndpoint string, opts ...func(*Options)
 		opt(options)
 	}
 
-	// Create the MCP server
-	mcpServer := server.NewMCPServer(
-		"wundergraph-cosmo-"+strcase.ToKebab(options.GraphName),
-		"0.0.1",
-		// Prompt, Resources aren't supported yet in any of the popular platforms
+	// Create a cancellable context for managing the server lifecycle
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Prepare server options
+	var serverOpts []server.ServerOption
+	serverOpts = append(serverOpts,
 		server.WithToolCapabilities(true),
 		server.WithPaginationLimit(100),
 		server.WithRecovery(),
+	)
+
+	// Add authentication middleware if OAuth is configured
+	if options.OAuthConfig != nil && options.OAuthConfig.Enabled && len(options.OAuthConfig.JWKS) > 0 {
+		// Convert config.JWKSConfiguration to authentication.JWKSConfig
+		authConfigs := make([]authentication.JWKSConfig, 0, len(options.OAuthConfig.JWKS))
+		for _, jwks := range options.OAuthConfig.JWKS {
+			authConfigs = append(authConfigs, authentication.JWKSConfig{
+				URL:               jwks.URL,
+				RefreshInterval:   jwks.RefreshInterval,
+				AllowedAlgorithms: jwks.Algorithms,
+				Secret:            jwks.Secret,
+				Algorithm:         jwks.Algorithm,
+				KeyId:             jwks.KeyId,
+				Audiences:         jwks.Audiences,
+				RefreshUnknownKID: authentication.RefreshUnknownKIDConfig{
+					Enabled:  jwks.RefreshUnknownKID.Enabled,
+					MaxWait:  jwks.RefreshUnknownKID.MaxWait,
+					Interval: jwks.RefreshUnknownKID.Interval,
+					Burst:    jwks.RefreshUnknownKID.Burst,
+				},
+			})
+		}
+
+		// Create token decoder using the managed context for proper lifecycle management
+		tokenDecoder, err := authentication.NewJwksTokenDecoder(
+			ctx,
+			options.Logger,
+			authConfigs,
+		)
+		if err != nil {
+			cancel() // Clean up the context if initialization fails
+			return nil, fmt.Errorf("failed to create token decoder: %w", err)
+		}
+
+		// Create authentication middleware
+		authMiddleware, err := NewMCPAuthMiddleware(tokenDecoder, true)
+		if err != nil {
+			cancel() // Clean up the context if initialization fails
+			return nil, fmt.Errorf("failed to create auth middleware: %w", err)
+		}
+
+		// Add middleware to server options
+		serverOpts = append(serverOpts,
+			server.WithToolHandlerMiddleware(authMiddleware.ToolMiddleware),
+		)
+
+		options.Logger.Info("MCP OAuth authentication enabled",
+			zap.Int("jwks_providers", len(options.OAuthConfig.JWKS)))
+	}
+
+	// Create the MCP server with all options
+	mcpServer := server.NewMCPServer(
+		"wundergraph-cosmo-"+strcase.ToKebab(options.GraphName),
+		"0.0.1",
+		serverOpts...,
 	)
 
 	retryClient := retryablehttp.NewClient()
@@ -244,6 +306,8 @@ func NewGraphQLSchemaServer(routerGraphQLEndpoint string, opts ...func(*Options)
 		exposeSchema:              options.ExposeSchema,
 		stateless:                 options.Stateless,
 		corsConfig:                options.CorsConfig,
+		ctx:                       ctx,
+		cancel:                    cancel,
 	}
 
 	return gs, nil
@@ -322,6 +386,13 @@ func WithCORS(corsCfg cors.Config) func(*Options) {
 	}
 }
 
+// WithOAuth sets the OAuth configuration
+func WithOAuth(oauthCfg *config.MCPOAuthConfiguration) func(*Options) {
+	return func(o *Options) {
+		o.OAuthConfig = oauthCfg
+	}
+}
+
 // Serve starts the server with the configured options and returns a streamable HTTP server.
 func (s *GraphQLSchemaServer) Serve() (*server.StreamableHTTPServer, error) {
 	// Create custom HTTP server
@@ -378,7 +449,6 @@ func (s *GraphQLSchemaServer) Serve() (*server.StreamableHTTPServer, error) {
 
 // Start loads operations and starts the server
 func (s *GraphQLSchemaServer) Start() error {
-
 	ss, err := s.Serve()
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP server: %w", err)
@@ -391,7 +461,6 @@ func (s *GraphQLSchemaServer) Start() error {
 
 // Reload reloads the operations and schema
 func (s *GraphQLSchemaServer) Reload(schema *ast.Document) error {
-
 	if s.server == nil {
 		return fmt.Errorf("server is not started")
 	}
@@ -422,6 +491,11 @@ func (s *GraphQLSchemaServer) Stop(ctx context.Context) error {
 
 	s.logger.Debug("shutting down MCP server")
 
+	// Cancel the server's context to stop background operations (e.g., JWKS key refresh)
+	if s.cancel != nil {
+		s.cancel()
+	}
+
 	// Create a shutdown context with timeout
 	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -435,7 +509,6 @@ func (s *GraphQLSchemaServer) Stop(ctx context.Context) error {
 
 // registerTools registers all tools for the MCP server
 func (s *GraphQLSchemaServer) registerTools() error {
-
 	// Only register the schema tool if exposeSchema is enabled
 	if s.exposeSchema {
 		s.server.AddTool(
@@ -498,7 +571,6 @@ func (s *GraphQLSchemaServer) registerTools() error {
 		)
 
 		s.registeredTools = append(s.registeredTools, "execute_graphql")
-
 	}
 
 	// Get operations filtered by the excludeMutations setting
@@ -596,6 +668,13 @@ func (s *GraphQLSchemaServer) registerTools() error {
 // handleOperation handles a specific operation
 func (s *GraphQLSchemaServer) handleOperation(handler *operationHandler) func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		// Log authenticated user if OAuth is enabled
+		if claims, ok := GetClaimsFromContext(ctx); ok {
+			s.logger.Debug("operation called by authenticated user",
+				zap.String("sub", getClaimString(claims, "sub")),
+				zap.String("email", getClaimString(claims, "email")),
+				zap.String("operation", handler.operation.Name))
+		}
 
 		jsonBytes, err := json.Marshal(request.GetArguments())
 		if err != nil {
@@ -771,6 +850,13 @@ func (s *GraphQLSchemaServer) executeGraphQLQuery(ctx context.Context, query str
 // handleExecuteGraphQL returns a handler function that executes arbitrary GraphQL queries
 func (s *GraphQLSchemaServer) handleExecuteGraphQL() func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	return func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		// Log authenticated user if OAuth is enabled
+		if claims, ok := GetClaimsFromContext(ctx); ok {
+			s.logger.Debug("arbitrary GraphQL query called by authenticated user",
+				zap.String("sub", getClaimString(claims, "sub")),
+				zap.String("email", getClaimString(claims, "email")))
+		}
+
 		// Parse the JSON input
 		jsonBytes, err := json.Marshal(request.GetArguments())
 		if err != nil {
@@ -807,4 +893,13 @@ func (s *GraphQLSchemaServer) handleGetGraphQLSchema() func(ctx context.Context,
 
 		return mcp.NewToolResultText(schemaStr), nil
 	}
+}
+// getClaimString safely extracts a string value from claims
+func getClaimString(claims authentication.Claims, key string) string {
+	if val, ok := claims[key]; ok {
+		if str, ok := val.(string); ok {
+			return str
+		}
+	}
+	return ""
 }
