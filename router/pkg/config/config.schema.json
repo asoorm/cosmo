@@ -1728,136 +1728,7 @@
               "type": "array",
               "additionalProperties": false,
               "items": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "url": {
-                    "type": "string",
-                    "description": "The URL of the JWKs. The JWKs are used to verify the JWT (JSON Web Token). The URL is specified as a string with the format 'scheme://host:port'.",
-                    "format": "http-url"
-                  },
-                  "audiences": {
-                    "type": "array",
-                    "description": "The audiences of the JWKs. The audiences are used to verify the JWT (JSON Web Token). The audiences are specified as a list of strings.",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  "secret": {
-                    "type": "string",
-                    "description": "The secret of the JWKs"
-                  },
-                  "symmetric_algorithm": {
-                    "type": "string",
-                    "description": "The symmetric algorithm used",
-                    "enum": ["HS256", "HS384", "HS512"]
-                  },
-                  "header_key_id": {
-                    "type": "string",
-                    "description": "The KID header of the JWK token created using the secret"
-                  },
-                  "algorithms": {
-                    "type": "array",
-                    "description": "The allowed algorithms for the keys that are retrieved from the JWKs. An empty list means that all algorithms are allowed.",
-                    "items": {
-                      "type": "string",
-                      "enum": [
-                        "HS256",
-                        "HS384",
-                        "HS512",
-                        "RS256",
-                        "RS384",
-                        "RS512",
-                        "ES256",
-                        "ES384",
-                        "ES512",
-                        "PS256",
-                        "PS384",
-                        "PS512",
-                        "EdDSA"
-                      ]
-                    }
-                  },
-                  "refresh_interval": {
-                    "type": "string",
-                    "duration": {
-                      "minimum": "5s"
-                    },
-                    "description": "The interval at which the JWKs are refreshed. The period is specified as a string with a number and a unit, e.g. 10ms, 1s, 1m, 1h. The supported units are 'ms', 's', 'm', 'h'.",
-                    "default": "1m"
-                  },
-                  "refresh_unknown_kid": {
-                    "type": "object",
-                    "description": "Controls rate-limited refresh behavior when a JWT KID is unknown.",
-                    "additionalProperties": false,
-                    "properties": {
-                      "enabled": {
-                        "type": "boolean",
-                        "description": "Enable refresh attempts on unknown KID.",
-                        "default": false
-                      },
-                      "max_wait": {
-                        "type": "string",
-                        "description": "Maximum time to wait for a refresh permit before giving up.",
-                        "default": "10s",
-                        "duration": {
-                          "minimum": "0s"
-                        }
-                      },
-                      "interval": {
-                        "type": "string",
-                        "description": "Token refill interval for the rate limiter.",
-                        "default": "1m",
-                        "duration": {
-                          "minimum": "1s"
-                        }
-                      },
-                      "burst": {
-                        "type": "integer",
-                        "description": "Burst size for the rate limiter.",
-                        "default": 2,
-                        "minimum": 1
-                      }
-                    }
-                  }
-                },
-                "oneOf": [
-                  {
-                    "required": ["url"],
-                    "not": {
-                      "anyOf": [
-                        {
-                          "required": ["secret"]
-                        },
-                        {
-                          "required": ["symmetric_algorithm"]
-                        },
-                        {
-                          "required": ["header_key_id"]
-                        }
-                      ]
-                    }
-                  },
-                  {
-                    "required": ["secret", "symmetric_algorithm", "header_key_id"],
-                    "not": {
-                      "anyOf": [
-                        {
-                          "required": ["url"]
-                        },
-                        {
-                          "required": ["algorithms"]
-                        },
-                        {
-                          "required": ["refresh_interval"]
-                        },
-                        {
-                          "required": ["refresh_unknown_kid"]
-                        }
-                      ]
-                    }
-                  }
-                ]
+                "$ref": "#/$defs/jwks_configuration"
               }
             },
             "header_name": {
@@ -2131,6 +2002,25 @@
           "type": "boolean",
           "default": false,
           "description": "Expose the full GraphQL schema through MCP. When enabled, AI models can request the complete schema of your API."
+        },
+        "oauth": {
+          "type": "object",
+          "description": "OAuth/JWKS authentication configuration for the MCP server. When enabled, MCP tool calls require valid JWT authentication.",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable OAuth/JWKS authentication for the MCP server. When true, all MCP tool calls must include a valid JWT token."
+            },
+            "jwks": {
+              "type": "array",
+              "description": "List of JWKS (JSON Web Key Set) configurations for JWT token verification. Multiple JWKS providers can be configured for different authentication sources.",
+              "items": {
+                "$ref": "#/$defs/jwks_configuration"
+              }
+            }
+          }
         }
       }
     },
@@ -3255,6 +3145,138 @@
     }
   },
   "$defs": {
+    "jwks_configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "The URL of the JWKs. The JWKs are used to verify the JWT (JSON Web Token). The URL is specified as a string with the format 'scheme://host:port'.",
+          "format": "http-url"
+        },
+        "audiences": {
+          "type": "array",
+          "description": "The audiences of the JWKs. The audiences are used to verify the JWT (JSON Web Token). The audiences are specified as a list of strings.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "secret": {
+          "type": "string",
+          "description": "The secret of the JWKs"
+        },
+        "symmetric_algorithm": {
+          "type": "string",
+          "description": "The symmetric algorithm used",
+          "enum": ["HS256", "HS384", "HS512"]
+        },
+        "header_key_id": {
+          "type": "string",
+          "description": "The KID header of the JWK token created using the secret"
+        },
+        "algorithms": {
+          "type": "array",
+          "description": "The allowed algorithms for the keys that are retrieved from the JWKs. An empty list means that all algorithms are allowed.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "HS256",
+              "HS384",
+              "HS512",
+              "RS256",
+              "RS384",
+              "RS512",
+              "ES256",
+              "ES384",
+              "ES512",
+              "PS256",
+              "PS384",
+              "PS512",
+              "EdDSA"
+            ]
+          }
+        },
+        "refresh_interval": {
+          "type": "string",
+          "duration": {
+            "minimum": "5s"
+          },
+          "description": "The interval at which the JWKs are refreshed. The period is specified as a string with a number and a unit, e.g. 10ms, 1s, 1m, 1h. The supported units are 'ms', 's', 'm', 'h'.",
+          "default": "1m"
+        },
+        "refresh_unknown_kid": {
+          "type": "object",
+          "description": "Controls rate-limited refresh behavior when a JWT KID is unknown.",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable refresh attempts on unknown KID.",
+              "default": false
+            },
+            "max_wait": {
+              "type": "string",
+              "description": "Maximum time to wait for a refresh permit before giving up.",
+              "default": "10s",
+              "duration": {
+                "minimum": "0s"
+              }
+            },
+            "interval": {
+              "type": "string",
+              "description": "Token refill interval for the rate limiter.",
+              "default": "1m",
+              "duration": {
+                "minimum": "1s"
+              }
+            },
+            "burst": {
+              "type": "integer",
+              "description": "Burst size for the rate limiter.",
+              "default": 2,
+              "minimum": 1
+            }
+          }
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["url"],
+          "not": {
+            "anyOf": [
+              {
+                "required": ["secret"]
+              },
+              {
+                "required": ["symmetric_algorithm"]
+              },
+              {
+                "required": ["header_key_id"]
+              }
+            ]
+          }
+        },
+        {
+          "required": ["secret", "symmetric_algorithm", "header_key_id"],
+          "not": {
+            "anyOf": [
+              {
+                "required": ["url"]
+              },
+              {
+                "required": ["algorithms"]
+              },
+              {
+                "required": ["refresh_interval"]
+              },
+              {
+                "required": ["refresh_unknown_kid"]
+              }
+            ]
+          }
+        }
+      ]
+    },
     "traffic_shaping_subgraph_request_rule": {
       "type": "object",
       "additionalProperties": false,
