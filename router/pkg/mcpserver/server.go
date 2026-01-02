@@ -127,6 +127,7 @@ type GraphQLSchemaServer struct {
 	cancel                    context.CancelFunc
 	oauthConfig               *config.MCPOAuthConfiguration
 	serverBaseURL             string
+	authMiddleware            *MCPAuthMiddleware
 }
 
 type graphqlRequest struct {
@@ -281,14 +282,47 @@ func NewGraphQLSchemaServer(routerGraphQLEndpoint string, opts ...func(*Options)
 			return nil, fmt.Errorf("failed to create auth middleware: %w", err)
 		}
 
-		// Add middleware to server options
-		serverOpts = append(serverOpts,
-			server.WithToolHandlerMiddleware(authMiddleware.ToolMiddleware),
-		)
-
+		// Store auth middleware for HTTP-level protection
+		// Note: We don't use WithToolHandlerMiddleware here because per MCP spec,
+		// ALL HTTP requests must be authenticated, not just tool calls
 		options.Logger.Info("MCP OAuth authentication enabled",
 			zap.Int("jwks_providers", len(options.OAuthConfig.JWKS)),
 			zap.String("authorization_server", options.OAuthConfig.AuthorizationServerURL))
+
+		// Create the MCP server with all options
+		mcpServer := server.NewMCPServer(
+			"wundergraph-cosmo-"+strcase.ToKebab(options.GraphName),
+			"0.0.1",
+			serverOpts...,
+		)
+
+		retryClient := retryablehttp.NewClient()
+		retryClient.Logger = nil
+		httpClient := retryClient.StandardClient()
+		httpClient.Timeout = 60 * time.Second
+
+		gs := &GraphQLSchemaServer{
+			server:                    mcpServer,
+			graphName:                 options.GraphName,
+			operationsDir:             options.OperationsDir,
+			listenAddr:                options.ListenAddr,
+			logger:                    options.Logger,
+			httpClient:                httpClient,
+			requestTimeout:            options.RequestTimeout,
+			routerGraphQLEndpoint:     routerGraphQLEndpoint,
+			excludeMutations:          options.ExcludeMutations,
+			enableArbitraryOperations: options.EnableArbitraryOperations,
+			exposeSchema:              options.ExposeSchema,
+			stateless:                 options.Stateless,
+			corsConfig:                options.CorsConfig,
+			ctx:                       ctx,
+			cancel:                    cancel,
+			oauthConfig:               options.OAuthConfig,
+			serverBaseURL:             options.ServerBaseURL,
+			authMiddleware:            authMiddleware,
+		}
+
+		return gs, nil
 	}
 
 	// Create the MCP server with all options
@@ -321,6 +355,7 @@ func NewGraphQLSchemaServer(routerGraphQLEndpoint string, opts ...func(*Options)
 		cancel:                    cancel,
 		oauthConfig:               options.OAuthConfig,
 		serverBaseURL:             options.ServerBaseURL,
+		authMiddleware:            nil, // No auth middleware when OAuth is disabled
 	}
 
 	return gs, nil
@@ -437,6 +472,7 @@ func (s *GraphQLSchemaServer) Serve() (*server.StreamableHTTPServer, error) {
 
 	// OAuth 2.0 Protected Resource Metadata endpoint (RFC 9728)
 	// This endpoint is required for MCP clients to discover the authorization server
+	// This endpoint is NOT protected by authentication (it's public discovery)
 	if s.oauthConfig != nil && s.oauthConfig.Enabled && s.oauthConfig.AuthorizationServerURL != "" {
 		mux.Handle("/.well-known/oauth-protected-resource", middleware(http.HandlerFunc(s.handleProtectedResourceMetadata)))
 		s.logger.Info("OAuth 2.0 Protected Resource Metadata endpoint enabled",
@@ -444,10 +480,19 @@ func (s *GraphQLSchemaServer) Serve() (*server.StreamableHTTPServer, error) {
 			zap.String("authorization_server", s.oauthConfig.AuthorizationServerURL))
 	}
 
-	// No OAuth protection - original behavior
-	mux.Handle("/mcp", middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// MCP endpoint with HTTP-level authentication
+	// Per MCP spec: "authorization MUST be included in every HTTP request from client to server"
+	mcpHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		streamableHTTPServer.ServeHTTP(w, r)
-	})))
+	})
+
+	// Apply authentication middleware if OAuth is enabled
+	if s.authMiddleware != nil {
+		mux.Handle("/mcp", middleware(s.authMiddleware.HTTPMiddleware(mcpHandler)))
+		s.logger.Info("MCP endpoint protected with OAuth authentication at HTTP level")
+	} else {
+		mux.Handle("/mcp", middleware(mcpHandler))
+	}
 
 	// Set the handler for the custom HTTP server
 	httpServer.Handler = mux
@@ -923,6 +968,7 @@ func (s *GraphQLSchemaServer) handleGetGraphQLSchema() func(ctx context.Context,
 		return mcp.NewToolResultText(schemaStr), nil
 	}
 }
+
 // getClaimString safely extracts a string value from claims
 func getClaimString(claims authentication.Claims, key string) string {
 	if val, ok := claims[key]; ok {
@@ -935,10 +981,10 @@ func getClaimString(claims authentication.Claims, key string) string {
 
 // ProtectedResourceMetadata represents the OAuth 2.0 Protected Resource Metadata (RFC 9728)
 type ProtectedResourceMetadata struct {
-	Resource              string   `json:"resource"`
-	AuthorizationServers  []string `json:"authorization_servers"`
+	Resource               string   `json:"resource"`
+	AuthorizationServers   []string `json:"authorization_servers"`
 	BearerMethodsSupported []string `json:"bearer_methods_supported,omitempty"`
-	ResourceDocumentation string   `json:"resource_documentation,omitempty"`
+	ResourceDocumentation  string   `json:"resource_documentation,omitempty"`
 }
 
 // handleProtectedResourceMetadata handles the OAuth 2.0 Protected Resource Metadata endpoint
@@ -962,15 +1008,15 @@ func (s *GraphQLSchemaServer) handleProtectedResourceMetadata(w http.ResponseWri
 	}
 
 	metadata := ProtectedResourceMetadata{
-		Resource:             resourceURL,
-		AuthorizationServers: []string{s.oauthConfig.AuthorizationServerURL},
+		Resource:               resourceURL,
+		AuthorizationServers:   []string{s.oauthConfig.AuthorizationServerURL},
 		BearerMethodsSupported: []string{"header"},
-		ResourceDocumentation: fmt.Sprintf("%s/mcp", resourceURL),
+		ResourceDocumentation:  fmt.Sprintf("%s/mcp", resourceURL),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	
+
 	if err := json.NewEncoder(w).Encode(metadata); err != nil {
 		s.logger.Error("failed to encode protected resource metadata", zap.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)

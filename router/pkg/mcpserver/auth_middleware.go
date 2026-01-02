@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -105,6 +106,57 @@ func (m *MCPAuthMiddleware) authenticateRequest(ctx context.Context) (authentica
 	}
 
 	return claims, nil
+}
+
+// HTTPMiddleware wraps HTTP handlers with authentication for ALL MCP operations
+// Per MCP specification: "authorization MUST be included in every HTTP request from client to server"
+func (m *MCPAuthMiddleware) HTTPMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !m.enabled {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Create a provider from the HTTP request headers
+		provider := &mcpAuthProvider{headers: r.Header}
+
+		// Validate the token
+		claims, err := m.authenticator.Authenticate(r.Context(), provider)
+		if err != nil || len(claims) == 0 {
+			// Return 401 with WWW-Authenticate header per RFC 9728
+			w.Header().Set("Content-Type", "application/json")
+
+			// Build WWW-Authenticate header with resource metadata URL
+			if m.resourceMetadataURL != "" {
+				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="mcp", resource="%s"`, m.resourceMetadataURL))
+			} else {
+				w.Header().Set("WWW-Authenticate", `Bearer realm="mcp"`)
+			}
+
+			w.WriteHeader(http.StatusUnauthorized)
+
+			// Return JSON-RPC error response
+			errorResponse := map[string]any{
+				"jsonrpc": "2.0",
+				"error": map[string]any{
+					"code":    -32001,
+					"message": "Authentication required",
+					"data": map[string]any{
+						"resource_metadata": m.resourceMetadataURL,
+					},
+				},
+			}
+
+			if err := json.NewEncoder(w).Encode(errorResponse); err != nil {
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+			}
+			return
+		}
+
+		// Add claims to request context for downstream handlers
+		ctx := context.WithValue(r.Context(), userClaimsContextKey, claims)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 // GetClaimsFromContext retrieves authenticated user claims from context

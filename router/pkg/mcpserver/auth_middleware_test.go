@@ -75,7 +75,7 @@ func TestNewMCPAuthMiddleware(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			middleware, err := NewMCPAuthMiddleware(tt.decoder, tt.enabled)
+			middleware, err := NewMCPAuthMiddleware(tt.decoder, tt.enabled, "http://localhost:5025/.well-known/oauth-protected-resource")
 			if tt.wantErr {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errContains)
@@ -149,7 +149,7 @@ func TestMCPAuthMiddleware_ToolMiddleware(t *testing.T) {
 				return h
 			},
 			wantErr:         true,
-			wantTextContain: "Authentication failed",
+			wantTextContain: "Authentication required",
 		},
 		{
 			name:    "wrong header format",
@@ -165,7 +165,7 @@ func TestMCPAuthMiddleware_ToolMiddleware(t *testing.T) {
 				return h
 			},
 			wantErr:         true,
-			wantTextContain: "Authentication failed",
+			wantTextContain: "Authentication required",
 		},
 		{
 			name:    "Bearer token with whitespace",
@@ -190,7 +190,7 @@ func TestMCPAuthMiddleware_ToolMiddleware(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			middleware, err := NewMCPAuthMiddleware(tt.decoder, tt.enabled)
+			middleware, err := NewMCPAuthMiddleware(tt.decoder, tt.enabled, "http://localhost:5025/.well-known/oauth-protected-resource")
 			require.NoError(t, err)
 
 			handler := middleware.ToolMiddleware(func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -218,7 +218,7 @@ func TestMCPAuthMiddleware_MissingHeaders(t *testing.T) {
 		},
 	}
 
-	middleware, err := NewMCPAuthMiddleware(decoder, true)
+	middleware, err := NewMCPAuthMiddleware(decoder, true, "http://localhost:5025/.well-known/oauth-protected-resource")
 	require.NoError(t, err)
 
 	handler := middleware.ToolMiddleware(func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -304,7 +304,7 @@ func TestMCPAuthMiddleware_Integration(t *testing.T) {
 		},
 	}
 
-	middleware, err := NewMCPAuthMiddleware(decoder, true)
+	middleware, err := NewMCPAuthMiddleware(decoder, true, "http://localhost:5025/.well-known/oauth-protected-resource")
 	require.NoError(t, err)
 
 	handler := middleware.ToolMiddleware(func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -334,5 +334,5 @@ func TestMCPAuthMiddleware_Integration(t *testing.T) {
 	result, err = handler(ctx, mcp.CallToolRequest{})
 	require.NoError(t, err)
 	assert.True(t, result.IsError)
-	assert.Contains(t, getTextFromResult(result), "Authentication failed")
+	assert.Contains(t, getTextFromResult(result), "Authentication required")
 }
