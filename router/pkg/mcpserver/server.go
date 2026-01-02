@@ -985,6 +985,7 @@ type ProtectedResourceMetadata struct {
 	AuthorizationServers   []string `json:"authorization_servers"`
 	BearerMethodsSupported []string `json:"bearer_methods_supported,omitempty"`
 	ResourceDocumentation  string   `json:"resource_documentation,omitempty"`
+	ScopesSupported        []string `json:"scopes_supported"`
 }
 
 // handleProtectedResourceMetadata handles the OAuth 2.0 Protected Resource Metadata endpoint
@@ -1007,11 +1008,19 @@ func (s *GraphQLSchemaServer) handleProtectedResourceMetadata(w http.ResponseWri
 		resourceURL = fmt.Sprintf("%s://%s", scheme, r.Host)
 	}
 
+	// Use configured scopes, or empty array if none configured
+	// Always include the field to be explicit about scope requirements
+	scopes := s.oauthConfig.Scopes
+	if scopes == nil {
+		scopes = []string{}
+	}
+	
 	metadata := ProtectedResourceMetadata{
 		Resource:               resourceURL,
 		AuthorizationServers:   []string{s.oauthConfig.AuthorizationServerURL},
 		BearerMethodsSupported: []string{"header"},
 		ResourceDocumentation:  fmt.Sprintf("%s/mcp", resourceURL),
+		ScopesSupported:        scopes,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -1005,6 +1005,7 @@ type MCPOAuthConfiguration struct {
 	Enabled                bool                `yaml:"enabled" envDefault:"false" env:"ENABLED"`
 	JWKS                   []JWKSConfiguration `yaml:"jwks"`
 	AuthorizationServerURL string              `yaml:"authorization_server_url,omitempty" env:"AUTHORIZATION_SERVER_URL"`
+	Scopes                 []string            `yaml:"scopes" env:"SCOPES"`
 }
 
 type MCPSessionConfig struct {

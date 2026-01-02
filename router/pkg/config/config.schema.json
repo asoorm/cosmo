@@ -2016,6 +2016,13 @@
               "description": "The base URL of the OAuth 2.0 authorization server. This URL is advertised to MCP clients via the Protected Resource Metadata endpoint (RFC 9728) to enable automatic discovery of OAuth endpoints. Clients will append '/.well-known/oauth-authorization-server' to this URL to discover token, authorization, and registration endpoints. Example: 'https://auth.example.com'",
               "format": "http-url"
             },
+            "scopes": {
+              "type": "array",
+              "description": "List of OAuth scopes supported by this MCP server. These scopes are advertised in the Protected Resource Metadata (RFC 9728) to inform clients what permissions they can request. Example: ['mcp:tools', 'mcp:schema:read']",
+              "items": {
+                "type": "string"
+              }
+            },
             "jwks": {
               "type": "array",
               "description": "List of JWKS (JSON Web Key Set) configurations for JWT token verification. Multiple JWKS providers can be configured for different authentication sources.",

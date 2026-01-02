@@ -125,14 +125,14 @@ func (m *MCPAuthMiddleware) HTTPMiddleware(next http.Handler) http.Handler {
 		if err != nil || len(claims) == 0 {
 			// Return 401 with WWW-Authenticate header per RFC 9728
 			w.Header().Set("Content-Type", "application/json")
-
+			
 			// Build WWW-Authenticate header with resource metadata URL
 			if m.resourceMetadataURL != "" {
 				w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="mcp", resource="%s"`, m.resourceMetadataURL))
 			} else {
 				w.Header().Set("WWW-Authenticate", `Bearer realm="mcp"`)
 			}
-
+			
 			w.WriteHeader(http.StatusUnauthorized)
 
 			// Return JSON-RPC error response
