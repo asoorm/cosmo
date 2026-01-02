@@ -28,13 +28,14 @@ func (p *mcpAuthProvider) AuthenticationHeaders() http.Header {
 
 // MCPAuthMiddleware creates authentication middleware for MCP tools and resources
 type MCPAuthMiddleware struct {
-	authenticator authentication.Authenticator
-	enabled       bool
+	authenticator       authentication.Authenticator
+	enabled             bool
+	resourceMetadataURL string
 }
 
 // NewMCPAuthMiddleware creates a new authentication middleware using the existing
 // authentication infrastructure from the router
-func NewMCPAuthMiddleware(tokenDecoder authentication.TokenDecoder, enabled bool) (*MCPAuthMiddleware, error) {
+func NewMCPAuthMiddleware(tokenDecoder authentication.TokenDecoder, enabled bool, resourceMetadataURL string) (*MCPAuthMiddleware, error) {
 	// Use the existing HttpHeaderAuthenticator with default settings (Authorization header, Bearer prefix)
 	// This ensures consistency with the rest of the router's authentication logic
 	authenticator, err := authentication.NewHttpHeaderAuthenticator(authentication.HttpHeaderAuthenticatorOptions{
@@ -48,8 +49,9 @@ func NewMCPAuthMiddleware(tokenDecoder authentication.TokenDecoder, enabled bool
 	}
 
 	return &MCPAuthMiddleware{
-		authenticator: authenticator,
-		enabled:       enabled,
+		authenticator:       authenticator,
+		enabled:             enabled,
+		resourceMetadataURL: resourceMetadataURL,
 	}, nil
 }
 
@@ -63,7 +65,14 @@ func (m *MCPAuthMiddleware) ToolMiddleware(next server.ToolHandlerFunc) server.T
 		// Extract and validate token
 		claims, err := m.authenticateRequest(ctx)
 		if err != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("Authentication failed: %v", err)), nil
+			// Return authentication error with WWW-Authenticate challenge information
+			// Per RFC 9728, we should indicate the resource metadata URL
+			errorMsg := fmt.Sprintf("Authentication failed: %v", err)
+			if m.resourceMetadataURL != "" {
+				errorMsg = fmt.Sprintf("Authentication required. Resource metadata available at: %s. Error: %v",
+					m.resourceMetadataURL, err)
+			}
+			return mcp.NewToolResultError(errorMsg), nil
 		}
 
 		// Add claims to context

@@ -1946,10 +1946,8 @@
               "format": "hostname-port"
             },
             "base_url": {
-              "deprecated": true,
-              "deprecationMessage": "The base_url is deprecated. This property was related to the SSE protocol that is not supported anymore.",
               "type": "string",
-              "description": "The base URL of the MCP server. This is the URL advertised to the LLM clients when SSE is used as primary transport. By default, the base URL is relative to the URL that the router is running on. The URL is specified as a string with the format 'scheme://host:port'.",
+              "description": "The base URL of the MCP server used for OAuth 2.0 discovery (RFC 9728). This URL is advertised in the Protected Resource Metadata endpoint and used to construct the resource metadata URL. Required when OAuth is enabled. The URL is specified as a string with the format 'scheme://host:port'.",
               "format": "http-url"
             }
           }
@@ -2005,13 +2003,18 @@
         },
         "oauth": {
           "type": "object",
-          "description": "OAuth/JWKS authentication configuration for the MCP server. When enabled, MCP tool calls require valid JWT authentication.",
+          "description": "OAuth/JWKS authentication configuration for the MCP server. When enabled, MCP tool calls require valid JWT authentication and the server implements OAuth 2.0 discovery mechanisms (RFC 8414, RFC 9728).",
           "additionalProperties": false,
           "properties": {
             "enabled": {
               "type": "boolean",
               "default": false,
               "description": "Enable OAuth/JWKS authentication for the MCP server. When true, all MCP tool calls must include a valid JWT token."
+            },
+            "authorization_server_url": {
+              "type": "string",
+              "description": "The base URL of the OAuth 2.0 authorization server. This URL is advertised to MCP clients via the Protected Resource Metadata endpoint (RFC 9728) to enable automatic discovery of OAuth endpoints. Clients will append '/.well-known/oauth-authorization-server' to this URL to discover token, authorization, and registration endpoints. Example: 'https://auth.example.com'",
+              "format": "http-url"
             },
             "jwks": {
               "type": "array",

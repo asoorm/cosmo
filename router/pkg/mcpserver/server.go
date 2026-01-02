@@ -100,6 +100,8 @@ type Options struct {
 	CorsConfig cors.Config
 	// OAuthConfig is the OAuth/JWKS configuration for authentication
 	OAuthConfig *config.MCPOAuthConfiguration
+	// ServerBaseURL is the base URL of this MCP server (for resource metadata)
+	ServerBaseURL string
 }
 
 // GraphQLSchemaServer represents an MCP server that works with GraphQL schemas and operations
@@ -123,6 +125,8 @@ type GraphQLSchemaServer struct {
 	corsConfig                cors.Config
 	ctx                       context.Context
 	cancel                    context.CancelFunc
+	oauthConfig               *config.MCPOAuthConfiguration
+	serverBaseURL             string
 }
 
 type graphqlRequest struct {
@@ -264,8 +268,14 @@ func NewGraphQLSchemaServer(routerGraphQLEndpoint string, opts ...func(*Options)
 			return nil, fmt.Errorf("failed to create token decoder: %w", err)
 		}
 
+		// Build resource metadata URL for WWW-Authenticate header
+		resourceMetadataURL := ""
+		if options.ServerBaseURL != "" {
+			resourceMetadataURL = fmt.Sprintf("%s/.well-known/oauth-protected-resource", options.ServerBaseURL)
+		}
+
 		// Create authentication middleware
-		authMiddleware, err := NewMCPAuthMiddleware(tokenDecoder, true)
+		authMiddleware, err := NewMCPAuthMiddleware(tokenDecoder, true, resourceMetadataURL)
 		if err != nil {
 			cancel() // Clean up the context if initialization fails
 			return nil, fmt.Errorf("failed to create auth middleware: %w", err)
@@ -277,7 +287,8 @@ func NewGraphQLSchemaServer(routerGraphQLEndpoint string, opts ...func(*Options)
 		)
 
 		options.Logger.Info("MCP OAuth authentication enabled",
-			zap.Int("jwks_providers", len(options.OAuthConfig.JWKS)))
+			zap.Int("jwks_providers", len(options.OAuthConfig.JWKS)),
+			zap.String("authorization_server", options.OAuthConfig.AuthorizationServerURL))
 	}
 
 	// Create the MCP server with all options
@@ -308,6 +319,8 @@ func NewGraphQLSchemaServer(routerGraphQLEndpoint string, opts ...func(*Options)
 		corsConfig:                options.CorsConfig,
 		ctx:                       ctx,
 		cancel:                    cancel,
+		oauthConfig:               options.OAuthConfig,
+		serverBaseURL:             options.ServerBaseURL,
 	}
 
 	return gs, nil
@@ -393,6 +406,13 @@ func WithOAuth(oauthCfg *config.MCPOAuthConfiguration) func(*Options) {
 	}
 }
 
+// WithServerBaseURL sets the server base URL for OAuth discovery
+func WithServerBaseURL(baseURL string) func(*Options) {
+	return func(o *Options) {
+		o.ServerBaseURL = baseURL
+	}
+}
+
 // Serve starts the server with the configured options and returns a streamable HTTP server.
 func (s *GraphQLSchemaServer) Serve() (*server.StreamableHTTPServer, error) {
 	// Create custom HTTP server
@@ -414,6 +434,15 @@ func (s *GraphQLSchemaServer) Serve() (*server.StreamableHTTPServer, error) {
 	middleware := cors.New(s.corsConfig)
 
 	mux := http.NewServeMux()
+
+	// OAuth 2.0 Protected Resource Metadata endpoint (RFC 9728)
+	// This endpoint is required for MCP clients to discover the authorization server
+	if s.oauthConfig != nil && s.oauthConfig.Enabled && s.oauthConfig.AuthorizationServerURL != "" {
+		mux.Handle("/.well-known/oauth-protected-resource", middleware(http.HandlerFunc(s.handleProtectedResourceMetadata)))
+		s.logger.Info("OAuth 2.0 Protected Resource Metadata endpoint enabled",
+			zap.String("path", "/.well-known/oauth-protected-resource"),
+			zap.String("authorization_server", s.oauthConfig.AuthorizationServerURL))
+	}
 
 	// No OAuth protection - original behavior
 	mux.Handle("/mcp", middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -900,6 +929,59 @@ func getClaimString(claims authentication.Claims, key string) string {
 		if str, ok := val.(string); ok {
 			return str
 		}
+	}
+	return ""
+}
+
+// ProtectedResourceMetadata represents the OAuth 2.0 Protected Resource Metadata (RFC 9728)
+type ProtectedResourceMetadata struct {
+	Resource              string   `json:"resource"`
+	AuthorizationServers  []string `json:"authorization_servers"`
+	BearerMethodsSupported []string `json:"bearer_methods_supported,omitempty"`
+	ResourceDocumentation string   `json:"resource_documentation,omitempty"`
+}
+
+// handleProtectedResourceMetadata handles the OAuth 2.0 Protected Resource Metadata endpoint
+// as specified in RFC 9728. This endpoint allows MCP clients to discover the authorization
+// server(s) associated with this resource server.
+func (s *GraphQLSchemaServer) handleProtectedResourceMetadata(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Determine the resource URL (this MCP server's base URL)
+	resourceURL := s.serverBaseURL
+	if resourceURL == "" {
+		// Fallback: construct from request if not configured
+		scheme := "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+		resourceURL = fmt.Sprintf("%s://%s", scheme, r.Host)
+	}
+
+	metadata := ProtectedResourceMetadata{
+		Resource:             resourceURL,
+		AuthorizationServers: []string{s.oauthConfig.AuthorizationServerURL},
+		BearerMethodsSupported: []string{"header"},
+		ResourceDocumentation: fmt.Sprintf("%s/mcp", resourceURL),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	
+	if err := json.NewEncoder(w).Encode(metadata); err != nil {
+		s.logger.Error("failed to encode protected resource metadata", zap.Error(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+}
+
+// GetResourceMetadataURL returns the URL for the OAuth 2.0 Protected Resource Metadata endpoint
+func (s *GraphQLSchemaServer) GetResourceMetadataURL() string {
+	if s.serverBaseURL != "" {
+		return fmt.Sprintf("%s/.well-known/oauth-protected-resource", s.serverBaseURL)
 	}
 	return ""
 }
